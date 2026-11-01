@@ -1,0 +1,662 @@
+<title>Buffer Under Dilution</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab bench. Left = the experiment (beaker + molecular window + reaction arrows), right = the lab notebook (steps + live numbers), below = theory chart and mechanism. */
+:root{
+  --bg:#ECF1F4; --panel:#FFFFFF; --ink:#14222D; --muted:#566874; --line:#D2DCE3; --glass:#F6F9FB;
+  --ha:#0E8174; --a:#D3751B; --na:#7656C2; --h:#D02F5C; --water:#7DA3C2;
+  --accent:#1D5DA6; --c2:#3B7D37; --c3:#C0392B; --hh:#7B8C98;
+  --font-display:"Sora", "Segoe UI", system-ui, sans-serif;
+  --font-body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-data:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D151C; --panel:#14202A; --ink:#E2EAF0; --muted:#93A4B1; --line:#25343F; --glass:#182632;
+    --ha:#3DC2AF; --a:#F0A04B; --na:#A88BF2; --h:#FF6B8F; --water:#5F87A8;
+    --accent:#72AAEA; --c2:#7DC870; --c3:#F27A68; --hh:#7E8F9C; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D151C; --panel:#14202A; --ink:#E2EAF0; --muted:#93A4B1; --line:#25343F; --glass:#182632;
+  --ha:#3DC2AF; --a:#F0A04B; --na:#A88BF2; --h:#FF6B8F; --water:#5F87A8;
+  --accent:#72AAEA; --c2:#7DC870; --c3:#F27A68; --hh:#7E8F9C; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+header.wrap{padding-block:28px 12px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0;letter-spacing:-0.01em}
+h1{font-size:clamp(1.6rem,3.2vw,2.3rem);font-weight:700}
+h2{font-size:1.25rem;font-weight:600}
+h3{font-size:1rem;font-weight:600}
+.lede{color:var(--muted);max-width:68ch;margin:8px 0 0}
+.eyebrow{font-family:var(--font-data);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+sub,sup{font-size:.72em;line-height:0}
+.mono{font-family:var(--font-data);font-variant-numeric:tabular-nums}
+
+main.wrap{display:flex;flex-direction:column;gap:20px;padding-block:8px 48px}
+.top{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:920px){.top{grid-template-columns:minmax(0,1fr)}}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.lab{padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.stage{display:grid;grid-template-columns:minmax(84px,.3fr) minmax(0,1fr);gap:14px;align-items:stretch}
+.beaker-col{display:flex;flex-direction:column;gap:6px;min-width:0}
+.beaker-wrap{flex:1;position:relative;min-height:180px}
+#beaker{position:absolute;inset:0;width:100%;height:100%}
+.vol{font-family:var(--font-data);font-size:.78rem;color:var(--muted);text-align:center}
+.vol b{display:block;color:var(--ink);font-weight:500;font-size:.9rem}
+.mol-col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.molbox{position:relative;aspect-ratio:4/3;max-width:100%;border-radius:8px;overflow:hidden;background:var(--glass);border:1px solid var(--line)}
+#mol{width:100%;height:100%;display:block}
+.freeze{position:absolute;left:10px;top:10px;right:10px;background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:.88rem}
+.freeze b{font-family:var(--font-display);font-weight:600}
+.scale-note{position:absolute;right:8px;bottom:6px;font-family:var(--font-data);font-size:.68rem;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.84rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+
+.equation{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 12px;padding:12px;border-radius:8px;background:var(--glass);border:1px solid var(--line);font-size:1.05rem}
+.equation .sp{font-weight:600;white-space:nowrap}
+.sp.ha{color:var(--ha)} .sp.a{color:var(--a)} .sp.h{color:var(--h)} .sp.w{color:var(--muted)}
+.arrows{display:flex;flex-direction:column;align-items:center;gap:2px}
+.arrows svg{width:96px;height:34px;display:block}
+.rates{display:grid;grid-template-columns:auto auto;gap:0 10px;font-family:var(--font-data);font-size:.72rem;color:var(--muted)}
+.qgauge{display:flex;flex-direction:column;gap:4px;width:100%}
+.qbar{position:relative;height:10px;border-radius:5px;background:linear-gradient(90deg,color-mix(in srgb,var(--ha) 35%,transparent),var(--line) 50%,color-mix(in srgb,var(--a) 35%,transparent))}
+.qmark{position:absolute;top:-4px;width:4px;height:18px;margin-left:-2px;border-radius:2px;background:var(--ink);transition:left .12s linear}
+.qmid{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
+.qticks{display:flex;justify-content:space-between;font-family:var(--font-data);font-size:.68rem;color:var(--muted)}
+.qlabel{font-size:.82rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:end}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font-family:var(--font-body);font-size:.95rem;font-weight:600;border-radius:7px;padding:8px 14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+button:hover:not(:disabled){filter:brightness(1.07)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.slider{display:flex;flex-direction:column;gap:2px;font-size:.85rem;color:var(--muted);min-width:150px;flex:1}
+.slider label{display:flex;justify-content:space-between;gap:8px}
+.slider output{font-family:var(--font-data);color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.check{display:inline-flex;gap:6px;align-items:center;font-size:.9rem;color:var(--muted)}
+
+.notebook{padding:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
+ol.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;counter-reset:s}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:26px minmax(0,1fr);gap:2px 8px;padding:8px;border-radius:7px;border:1px solid transparent;opacity:.55;transition:opacity .25s,background .25s}
+ol.steps li::before{content:counter(s);grid-row:span 2;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-data);font-size:.75rem;border:1px solid var(--muted);color:var(--muted)}
+ol.steps li.on{opacity:1;background:var(--glass);border-color:var(--line)}
+ol.steps li.on::before{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+ol.steps h3{font-size:.95rem}
+ol.steps p{margin:0;font-size:.88rem;color:var(--muted)}
+.summary{font-size:.9rem;padding:10px 12px;border-radius:7px;border:1px dashed var(--line)}
+.summary b{font-family:var(--font-data);font-weight:500}
+.ph{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.ph .big{font-family:var(--font-data);font-size:2.4rem;font-weight:500;font-variant-numeric:tabular-nums;line-height:1}
+.ph .delta{font-family:var(--font-data);font-size:.9rem;color:var(--muted)}
+dl.read{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;margin:0;font-size:.88rem}
+dl.read dt{color:var(--muted)}
+dl.read dd{margin:0;font-family:var(--font-data);font-variant-numeric:tabular-nums;text-align:right}
+dl.read .sep{grid-column:1/-1;border-top:1px solid var(--line);margin:4px 0}
+
+.chartcard{padding:16px;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px}
+@media (max-width:920px){.chartcard{grid-template-columns:minmax(0,1fr)}}
+.chartwrap{overflow-x:auto}
+#chart{width:100%;min-width:420px;height:auto;display:block}
+.clegend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.84rem;color:var(--muted);margin:8px 0}
+.clegend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:18px;height:0;border-top:3px solid}
+.chartnotes{font-size:.92rem;display:flex;flex-direction:column;gap:10px;min-width:0}
+.chartnotes p{margin:0}
+
+.theory{padding:20px;display:flex;flex-direction:column;gap:14px}
+.mech{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:14px;margin:0;padding:0;list-style:none;counter-reset:m}
+.mech li{counter-increment:m;padding:14px;border-radius:8px;background:var(--glass);border:1px solid var(--line);display:flex;flex-direction:column;gap:6px;min-width:0}
+.mech li h3::before{content:counter(m) ". ";color:var(--accent)}
+.mech p{margin:0;font-size:.92rem}
+.math{font-family:var(--font-data);font-size:.85rem;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;overflow-x:auto;white-space:nowrap}
+.foot{font-size:.82rem;color:var(--muted);max-width:90ch}
+@media (prefers-reduced-motion: reduce){ .qmark{transition:none} ol.steps li{transition:none} }
+</style>
+
+<header class="wrap">
+  <div class="eyebrow">Acetic acid / sodium acetate buffer · 25 °C · pK<sub>a</sub> 4.76</div>
+  <h1>Buffer Under Dilution</h1>
+  <p class="lede">Add water and watch what happens at the molecular scale. Every concentration drops, the equilibrium is knocked off balance, and a tiny amount of acetic acid ionizes to put the hydronium back. That is why the pH barely moves.</p>
+</header>
+
+<main class="wrap">
+  <div class="top">
+    <section class="card lab" aria-label="Experiment">
+      <div class="stage">
+        <div class="beaker-col">
+          <div class="beaker-wrap"><canvas id="beaker" aria-label="Beaker with bromocresol green indicator"></canvas></div>
+          <div class="vol"><b id="volTxt">25 mL</b><span id="facTxt">dilution 1×</span></div>
+        </div>
+        <div class="mol-col">
+          <div class="molbox">
+            <canvas id="mol" aria-label="Molecular view of a fixed small volume of the solution"></canvas>
+            <div id="freeze" class="freeze" hidden></div>
+            <div class="scale-note" id="scaleNote"></div>
+          </div>
+          <div class="legend">
+            <span><i class="dot" style="background:var(--ha)"></i>CH₃COOH</span>
+            <span><i class="dot" style="background:var(--a)"></i>CH₃COO⁻</span>
+            <span><i class="dot" style="background:var(--na)"></i>Na⁺</span>
+            <span><i class="dot" style="background:var(--h)"></i>H₃O⁺ <em id="magTxt"></em></span>
+            <span><i class="dot" style="background:var(--water);opacity:.6"></i>H₂O</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="equation" aria-live="off">
+        <span class="sp ha">CH₃COOH</span><span>+</span><span class="sp w">H₂O</span>
+        <div class="arrows">
+          <svg id="arrows" viewBox="0 0 96 34" aria-hidden="true"></svg>
+        </div>
+        <span class="sp h">H₃O⁺</span><span>+</span><span class="sp a">CH₃COO⁻</span>
+        <div class="rates"><span>forward k<sub>f</sub>[HA]</span><span id="vf">–</span><span>reverse k<sub>r</sub>[H₃O⁺][A⁻]</span><span id="vr">–</span></div>
+        <div class="qgauge">
+          <div class="qlabel"><span>Reaction quotient Q relative to K<sub>a</sub></span><span class="mono" id="qTxt">Q/K<sub>a</sub> = 1.00</span></div>
+          <div class="qbar"><div class="qmid"></div><div class="qmark" id="qMark" style="left:50%"></div></div>
+          <div class="qticks"><span>0.01</span><span>0.1</span><span>1</span><span>10</span><span>100</span></div>
+          <div class="qlabel"><span>Q &lt; K<sub>a</sub>: net ionization →</span><span>← Q &gt; K<sub>a</sub>: net recombination</span></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="btns">
+          <button class="primary" id="d2">Add water: double the volume</button>
+          <button class="primary" id="d10">Add water: 10× the volume</button>
+          <button id="pause">Pause</button>
+          <button id="reset">Reset</button>
+        </div>
+        <label class="check"><input type="checkbox" id="slow"> Slow motion</label>
+        <div class="slider"><label for="ca">Starting [CH₃COOH] <output id="caO">0.10 M</output></label><input type="range" id="ca" min="0.01" max="0.20" step="0.01" value="0.10"></div>
+        <div class="slider"><label for="cb">Starting [CH₃COONa] <output id="cbO">0.10 M</output></label><input type="range" id="cb" min="0.01" max="0.20" step="0.01" value="0.10"></div>
+      </div>
+    </section>
+
+    <aside class="card notebook" aria-label="What is happening">
+      <div>
+        <div class="eyebrow">What is happening now</div>
+        <ol class="steps" id="steps">
+          <li data-s="eq"><h3>Dynamic equilibrium</h3><p>Acetic acid gives protons to water and acetate takes them back at the same rate, so the totals hold steady while individual molecules keep changing.</p></li>
+          <li data-s="mixing"><h3>Water is added</h3><p>The same moles of each solute now share <span class="kTxt">k</span>× the volume. Water stays at 55.5 M, so it does not appear in Q.</p></li>
+          <li data-s="frozen"><h3>The instant after mixing</h3><p>Every solute concentration fell <span class="kTxt">k</span>×. Q has two solutes on top and one below, so Q fell to K<sub>a</sub>/<span class="kTxt">k</span>.</p></li>
+          <li data-s="relax"><h3>Shift to the right</h3><p>The forward rate fell <span class="kTxt">k</span>× but the reverse rate fell <span class="k2Txt">k²</span>×. Net ionization of CH₃COOH rebuilds H₃O⁺ until the two rates match again.</p></li>
+        </ol>
+      </div>
+      <div class="summary" id="summary">Press <b>Add water</b> to dilute the buffer. Each step pauses right after mixing so you can see the disturbed state before the equilibrium responds.</div>
+      <div>
+        <div class="eyebrow">Live readings (ideal solution)</div>
+        <div class="ph"><span class="big" id="phTxt">4.76</span><span class="delta" id="dphTxt">ΔpH 0.000 from start</span></div>
+      </div>
+      <dl class="read">
+        <dt>[CH₃COOH]</dt><dd id="rHA">–</dd>
+        <dt>[CH₃COO⁻]</dt><dd id="rA">–</dd>
+        <dt>[H₃O⁺]</dt><dd id="rH">–</dd>
+        <dt>[CH₃COO⁻] / [CH₃COOH]</dt><dd id="rRatio">–</dd>
+        <dt class="sep"></dt>
+        <dt>pH with activity correction</dt><dd id="rAct">–</dd>
+        <dt>Same dilution, unbuffered HCl</dt><dd id="rHCl">–</dd>
+        <dt>Buffer capacity β</dt><dd id="rBeta">–</dd>
+        <dt>Relaxation time τ (real)</dt><dd id="rTau">–</dd>
+      </dl>
+    </aside>
+  </div>
+
+  <section class="card chartcard" aria-label="Theoretical pH versus dilution">
+    <div style="min-width:0">
+      <h2>pH against dilution: the theoretical result</h2>
+      <div class="clegend">
+        <span><i class="sw" style="border-color:var(--hh);border-top-style:dashed"></i>Henderson–Hasselbalch</span>
+        <span><i class="sw" style="border-color:var(--accent)"></i>Buffer, exact (ideal)</span>
+        <span><i class="sw" style="border-color:var(--c2)"></i>Buffer, with activities (Davies)</span>
+        <span><i class="sw" style="border-color:var(--c3)"></i>HCl at the same starting pH</span>
+      </div>
+      <div class="chartwrap"><svg id="chart" viewBox="0 0 640 330" role="img" aria-label="pH versus dilution factor for the buffer and for hydrochloric acid"></svg></div>
+    </div>
+    <div class="chartnotes">
+      <p><strong>Henderson–Hasselbalch</strong> says pH = pK<sub>a</sub> + log([A⁻]/[HA]). Dilution divides both by the same factor, so the line is flat.</p>
+      <p><strong>The exact equilibrium</strong> includes the H₃O⁺ that had to be made to refill the solution. While the buffer components are hundreds of times more concentrated than H₃O⁺, that correction is invisible. Once they fall toward about 10⁻⁴ M the correction grows and pH drifts toward 7. The shaded band marks where the gap passes 0.02 pH units.</p>
+      <p><strong>Activities.</strong> In the 0.1 M solution, ions are crowded and acetate's activity coefficient is about 0.78. Dilution lowers ionic strength, γ rises toward 1, and the measured pH creeps up by about 0.1 before the ideal curves take over.</p>
+      <p><strong>HCl</strong> has no reservoir of undissociated acid. Every tenfold dilution removes 90% of its H₃O⁺ for good, until water's own ionization holds it near pH 7.</p>
+    </div>
+  </section>
+
+  <section class="card theory" aria-label="Mechanism">
+    <h2>The mechanism, step by step</h2>
+    <ol class="mech">
+      <li><h3>Equilibrium is a balance of two rates</h3>
+        <p>Proton transfer runs both ways all the time. At 0.1 M each, about 8 × 10⁴ mol L⁻¹ s⁻¹ of acetic acid ionizes and the same amount recombines. Equilibrium is when these match:</p>
+        <div class="math">k<sub>f</sub>[HA] = k<sub>r</sub>[H₃O⁺][A⁻] &nbsp;⇔&nbsp; K<sub>a</sub> = k<sub>f</sub>/k<sub>r</sub></div></li>
+      <li><h3>Dilution disturbs Q, not K<sub>a</sub></h3>
+        <p>Dividing every solute concentration by k changes the reaction quotient by k⁻¹. Two dissolved particles sit on the product side and one on the reactant side. Water's concentration is unchanged.</p>
+        <div class="math">Q = (h/k)(a/k)/(c/k) = K<sub>a</sub>/k &lt; K<sub>a</sub></div></li>
+      <li><h3>The rates answer differently</h3>
+        <p>Ionization depends on one solute, so it slows k-fold. Recombination needs an H₃O⁺ and an A⁻ to meet, so it slows k²-fold. For a moment, ionization wins. This is Le Chatelier's principle seen from the kinetics.</p>
+        <div class="math">v<sub>f</sub>/v<sub>r</sub> = K<sub>a</sub>/Q = k</div></li>
+      <li><h3>A small reservoir draw restores H₃O⁺</h3>
+        <p>To refill H₃O⁺ to nearly its old value, only x ≈ [H₃O⁺](1 − 1/k) of the acid must ionize. For 0.1 M acetic acid that is under 0.02% of the HA, so the ratio [A⁻]/[HA] is unchanged and so is the pH.</p>
+        <div class="math">x ≪ [HA], [A⁻] &nbsp;⇒&nbsp; [A⁻]/[HA] ≈ constant</div></li>
+      <li><h3>Where the argument breaks</h3>
+        <p>When [HA] and [A⁻] are no longer much larger than [H₃O⁺], x stops being negligible and the exact curve leaves the flat line. Buffer capacity also falls k-fold with every dilution, even when pH holds: the diluted buffer absorbs less added acid or base.</p>
+        <div class="math">β = 2.303([H₃O⁺] + [OH⁻] + C·K<sub>a</sub>[H₃O⁺]/(K<sub>a</sub>+[H₃O⁺])²)</div></li>
+    </ol>
+    <p class="foot">Model notes: K<sub>a</sub> = 1.75 × 10⁻⁵, K<sub>w</sub> = 1.0 × 10⁻¹⁴, recombination rate constant k<sub>r</sub> = 4.5 × 10¹⁰ M⁻¹ s⁻¹ (diffusion controlled), so k<sub>f</sub> = K<sub>a</sub>k<sub>r</sub> ≈ 7.9 × 10⁵ s⁻¹. The real return to equilibrium takes nanoseconds; the animation stretches it to a few seconds and scales the event rate by the same factor. The molecular window is a fixed volume. Each H₃O⁺ dot stands for far fewer ions than each acid or acetate dot, so the H₃O⁺ that is rebuilt is visible while the matching change in HA is not. The beaker contains bromocresol green (pK<sub>In</sub> 4.7, yellow to blue), also present in the added water, so its tint reports pH only.</p>
+  </section>
+</main>
+
+<script>
+(()=>{
+const Ka=1.75e-5, pKa=-Math.log10(Ka), Kw=1e-14, kr=4.5e10, kf=Ka*kr;
+const SCALE=300;           // dots per mol/L for HA, A-, Na+ in the molecular window
+const V0=25;               // starting volume, mL
+const FMAX=1e4;
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=id=>document.getElementById(id);
+
+/* ---------- chemistry ---------- */
+function solveH(Ct,Na,Kc,Kwc){ // charge balance: h + Na = A + OH
+  let lo=-14, hi=0;
+  for(let i=0;i<90;i++){
+    const mid=(lo+hi)/2, h=10**mid;
+    const g=h+Na-Ct*Kc/(Kc+h)-Kwc/h;
+    if(g>0) hi=mid; else lo=mid;
+  }
+  return 10**((lo+hi)/2);
+}
+function eqIdeal(Ct,Na){ const h=solveH(Ct,Na,Ka,Kw); return {h, A:Ct*Ka/(Ka+h)}; }
+function davies(I){ const s=Math.sqrt(I); return 10**(-0.509*(s/(1+s)-0.3*I)); }
+function pHActivity(Ct,Na){
+  let g=1,h=1e-5;
+  for(let i=0;i<40;i++){
+    const Kc=Ka/(g*g), Kwc=Kw/(g*g);
+    h=solveH(Ct,Na,Kc,Kwc);
+    const A=Ct*Kc/(Kc+h), OH=Kwc/h;
+    g=davies(0.5*(h+Na+A+OH));
+  }
+  return -Math.log10(g*h);
+}
+function pHHCl(C){ const h=C/2+Math.sqrt(C*C/4+Kw); return -Math.log10(h); }
+function beta(h,Ct){ return 2.303*(h+Kw/h+Ct*Ka*h/((Ka+h)**2)); }
+
+/* ---------- formatting ---------- */
+const SUP={'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+function sci(x,p=3){
+  if(!isFinite(x)) return '–';
+  if(x===0) return '0';
+  const ax=Math.abs(x);
+  if(ax>=0.01 && ax<1000) return (+x.toPrecision(p)).toString();
+  let e=Math.floor(Math.log10(ax)); if(+(ax/10**e).toFixed(p-1)>=10) e++; const m=x/10**e;
+  return m.toFixed(p-1)+' × 10'+String(e).split('').map(c=>SUP[c]).join('');
+}
+const M=x=>sci(x)+' M';
+function volStr(f){ const v=V0*f; return v<1000? (+v.toPrecision(3))+' mL' : (+(v/1000).toPrecision(3))+' L'; }
+function niceMag(x){ const e=Math.floor(Math.log10(x)); const b=x/10**e; const m=b>=5?5:b>=2?2:1; return m*10**e; }
+
+/* ---------- state ---------- */
+const st={C0a:.1,C0b:.1,f:1,Ct:.2,Na:.1,A:.1,h:1.75e-5,As:0,hs:0,Aeq:0,heq:0,
+  phase:'eq',t:0,k:1,S:1,paused:false,slow:false,pH0:4.76,mag:3000,
+  pre:null, fillDisp:0.12};
+const durs=()=>({mix:1.3, hold:st.slow?3.2:2.2, tau:st.slow?2.6:1.5});
+
+function relaxTime(h,A){ return 1/(kf+kr*(h+A)); }
+function setScaleFactor(){ st.S = relaxTime(st.heq,st.Aeq)/durs().tau; }
+
+/* ---------- particles (normalized coords) ---------- */
+let P=[], sprites=[], flashes=[];
+function rnd(a,b){return a+Math.random()*(b-a)}
+function randn(){ let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+function addP(type,u,v,extra){ const p={type,u:u??Math.random(),v:v??Math.random(),vx:0,vy:0,alpha:1,leaving:false,busy:false,born:performance.now(),...extra}; P.push(p); return p; }
+const live=t=>P.filter(p=>p.type===t&&!p.leaving&&!p.temp);
+const targets=()=>({ha:(st.Ct-st.A)*SCALE, a:st.A*SCALE, na:st.Na*SCALE, h:st.h*SCALE*st.mag});
+
+function initParticles(){
+  P=[];sprites=[];flashes=[];
+  const T=targets();
+  for(let i=0;i<190;i++) addP('w');
+  for(let i=0;i<Math.round(T.na);i++) addP('na');
+  for(let i=0;i<Math.round(T.ha);i++) addP('ha');
+  for(let i=0;i<Math.round(T.a);i++) addP('a');
+  for(let i=0;i<Math.round(T.h);i++) addP('h');
+}
+function sendAway(p){
+  p.leaving=true; p.busy=true;
+  const du=p.u-.5, dv=p.v-.5, n=Math.hypot(du,dv)||1;
+  p.vx=du/n*rnd(.35,.6); p.vy=dv/n*rnd(.35,.6);
+}
+function trimTo(type,n){
+  const arr=live(type).filter(p=>!p.busy);
+  let excess=live(type).length-n;
+  while(excess>0 && arr.length){ const i=Math.floor(Math.random()*arr.length); sendAway(arr.splice(i,1)[0]); excess--; }
+}
+
+/* ---------- reset ---------- */
+function reset(){
+  st.C0a=+$('ca').value; st.C0b=+$('cb').value;
+  st.f=1; st.Ct=st.C0a+st.C0b; st.Na=st.C0b;
+  const e=eqIdeal(st.Ct,st.Na);
+  st.A=st.Aeq=st.As=e.A; st.h=st.heq=st.hs=e.h;
+  st.pH0=-Math.log10(e.h);
+  st.HCl0=e.h-Kw/e.h;
+  st.mag=niceMag(16/(e.h*SCALE));
+  st.phase='eq'; st.t=0; st.pre=null;
+  setScaleFactor();
+  initParticles();
+  st.fillDisp=fillFor(1);
+  $('magTxt').textContent='(drawn '+st.mag.toLocaleString('en-US')+'× more abundant)';
+  $('scaleNote').textContent='1 acid/acetate dot ≈ '+sci(1000/SCALE)+' mM';
+  $('summary').innerHTML='Press <b>Add water</b> to dilute the buffer. Each step pauses right after mixing so you can see the disturbed state before the equilibrium responds.';
+  $('caO').textContent=st.C0a.toFixed(2)+' M'; $('cbO').textContent=st.C0b.toFixed(2)+' M';
+  buildChart(); updateUI(true);
+}
+
+/* ---------- dilution ---------- */
+function dilute(k){
+  if(st.phase==='mixing'||st.phase==='frozen') return;
+  if(st.f*k>FMAX*1.0001) return;
+  st.pre={pH:-Math.log10(st.h), f:st.f, k};
+  st.k=k; st.f*=k;
+  st.Ct=(st.C0a+st.C0b)/st.f; st.Na=st.C0b/st.f;
+  st.A/=k; st.h/=k;
+  st.As=st.A; st.hs=st.h;
+  const e=eqIdeal(st.Ct,st.Na); st.Aeq=e.A; st.heq=e.h;
+  st.justMixed={HA:st.Ct-st.A, Q:st.h*st.A/(st.Ct-st.A)};
+  setScaleFactor();
+  const T=targets();
+  trimTo('ha',Math.round(T.ha)); trimTo('a',Math.round(T.a)); trimTo('na',Math.round(T.na)); trimTo('h',Math.round(T.h));
+  sprites.forEach(s=>s.cancel=true);
+  st.phase='mixing'; st.t=0;
+  document.querySelectorAll('.kTxt').forEach(el=>el.textContent=k);
+  document.querySelectorAll('.k2Txt').forEach(el=>el.textContent=k*k);
+}
+
+/* ---------- proton-transfer events ---------- */
+function nearest(type,u,v){
+  let best=null,bd=1e9;
+  for(const p of P){ if(p.type!==type||p.leaving||p.busy||p.temp) continue; const d=(p.u-u)**2+(p.v-v)**2; if(d<bd){bd=d;best=p;} }
+  return best;
+}
+function forwardEvent(){
+  const cands=live('ha').filter(p=>!p.busy);
+  let src=null,u0,v0;
+  if(cands.length){ src=cands[Math.floor(Math.random()*cands.length)]; src.busy=true; u0=src.u; v0=src.v; }
+  else { u0=Math.random()<.5?-.02:1.02; v0=Math.random(); } // proton from an acid molecule just outside the window
+  const u1=Math.min(.97,Math.max(.03,u0+rnd(-.09,.09))), v1=Math.min(.97,Math.max(.03,v0+rnd(-.12,.12)));
+  sprites.push({from:src,u0,v0,u1,v1,t:0,dur:.38,done(){
+    const hp=addP('h',u1,v1); hp.pop=1;
+    flashes.push({u:u1,v:v1,t:0,dur:.5,c:'h'});
+    if(src){ src.busy=false;
+      const T=targets(), nHA=live('ha').length, nA=live('a').length;
+      if(!src.leaving && nHA>=T.ha && nA<=T.a){ src.type='a'; flashes.push({u:src.u,v:src.v,t:0,dur:.5,c:'a'}); }
+    }
+  }});
+}
+function reverseEvent(){
+  const hs=live('h').filter(p=>!p.busy);
+  if(!hs.length) return;
+  const hp=hs[Math.floor(Math.random()*hs.length)]; hp.busy=true;
+  const tgt=nearest('a',hp.u,hp.v);
+  if(tgt) tgt.busy=true;
+  sprites.push({from:hp,to:tgt,u1:tgt?tgt.u:(hp.u<.5?-.05:1.05),v1:tgt?tgt.v:hp.v,t:0,dur:.38,done(){
+    P.splice(P.indexOf(hp),1);
+    if(tgt){ tgt.busy=false;
+      const T=targets(), nHA=live('ha').length, nA=live('a').length;
+      if(!tgt.leaving && nA>=T.a && nHA<=T.ha){ tgt.type='ha'; }
+      flashes.push({u:tgt.u,v:tgt.v,t:0,dur:.5,c:'ha'});
+    }
+  }});
+}
+let accF=0,accR=0,recon=0;
+
+/* ---------- update ---------- */
+function rates(){ const HA=st.Ct-st.A; return {vf:kf*HA, vr:kr*st.h*st.A}; }
+function update(dt){
+  const D=durs();
+  st.t+=dt;
+  if(st.phase==='mixing' && st.t>=D.mix){ st.phase='frozen'; st.t=0; }
+  else if(st.phase==='frozen' && st.t>=D.hold){ st.phase='relax'; st.t=0; }
+  else if(st.phase==='relax'){
+    const e=Math.exp(-st.t/D.tau);
+    st.A=st.Aeq+(st.As-st.Aeq)*e; st.h=st.heq+(st.hs-st.heq)*e;
+    if(st.t>5*D.tau){ st.A=st.Aeq; st.h=st.heq; st.phase='eq'; st.t=0; finishStep(); }
+  }
+  // events
+  if(st.phase==='eq'||st.phase==='relax'){
+    const {vf,vr}=rates(), dotsH=SCALE*st.mag;
+    let rf=dotsH*vf*st.S, rr=dotsH*vr*st.S;
+    const cap=26, m=Math.max(rf,rr); if(m>cap){ rf*=cap/m; rr*=cap/m; }
+    accF+=rf*dt; accR+=rr*dt;
+    while(accF>=1){ accF-=1; forwardEvent(); }
+    while(accR>=1){ accR-=1; reverseEvent(); }
+    recon+=dt;
+    if(recon>.6){ recon=0;
+      const T=targets(), nh=live('h').length;
+      if(nh>T.h+4){ const c=live('h').filter(p=>!p.busy); if(c.length) sendAway(c[0]); }
+      else if(nh<T.h-4){ const p=addP('h'); p.pop=1; }
+    }
+  } else { accF=accR=0; }
+  // sprites
+  for(const s of sprites){ s.t+=dt; }
+  for(const s of sprites.filter(s=>s.t>=s.dur||s.cancel)){
+    if(s.cancel){ if(s.from) s.from.busy=s.from.leaving; if(s.to) s.to.busy=s.to.leaving; }
+    else s.done();
+  }
+  sprites=sprites.filter(s=>s.t<s.dur&&!s.cancel);
+  flashes.forEach(f=>f.t+=dt); flashes=flashes.filter(f=>f.t<f.dur);
+  // inflowing water during mixing
+  if(st.phase==='mixing' && st.t<D.mix*.8 && Math.random()<dt*55){
+    const p=addP('w',Math.random(),-.02,{temp:true}); p.vy=rnd(.3,.55); p.life=1.6;
+  }
+  // motion
+  const amp=reduce?.4:1;
+  for(const p of P){
+    const big=p.type==='ha'||p.type==='a';
+    const sig=(p.type==='w'?.26:p.type==='na'||p.type==='h'?.17:.12)*amp;
+    if(!p.leaving){
+      p.vx+=randn()*sig*Math.sqrt(dt)*2; p.vy+=randn()*sig*Math.sqrt(dt)*2;
+      const damp=Math.exp(-(big?2.4:2)*dt); p.vx*=damp; p.vy*=damp;
+      if(st.phase==='mixing'&&!p.temp){ p.vy+=.25*dt*(p.v<.5?1:.3); }
+    }
+    p.u+=p.vx*dt*aspectK; p.v+=p.vy*dt;
+    if(p.temp){ p.life-=dt; p.alpha=Math.max(0,Math.min(1,p.life)); if(p.v>.98) p.vy=-Math.abs(p.vy)*.2; }
+    else if(!p.leaving){
+      if(p.u<.02){p.u=.02;p.vx=Math.abs(p.vx);} if(p.u>.98){p.u=.98;p.vx=-Math.abs(p.vx);}
+      if(p.v<.02){p.v=.02;p.vy=Math.abs(p.vy);} if(p.v>.98){p.v=.98;p.vy=-Math.abs(p.vy);}
+    } else { p.alpha-=dt*.9; }
+    if(p.pop) p.pop=Math.max(0,p.pop-dt*2.5);
+  }
+  P=P.filter(p=>!(p.leaving&&(p.alpha<=0||p.u<-.1||p.u>1.1||p.v<-.1||p.v>1.1)) && !(p.temp&&p.life<=0));
+}
+
+function finishStep(){
+  if(!st.pre) return;
+  const pH=-Math.log10(st.h), d=pH-st.pre.pH;
+  const ion=(st.Aeq-st.As)/st.justMixed.HA*100;
+  const hclA=pHHCl(st.HCl0/st.pre.f), hclB=pHHCl(st.HCl0/st.f);
+  $('summary').innerHTML=
+    `<strong>New equilibrium after ×${st.pre.k}.</strong> pH ${st.pre.pH.toFixed(3)} → ${pH.toFixed(3)} (<b>${d>=0?'+':''}${d.toFixed(4)}</b>). `+
+    `To refill H₃O⁺, <b>${ion<0.01?ion.toExponential(1):ion.toPrecision(2)}%</b> of the acetic acid ionized. `+
+    `Unbuffered HCl diluted the same way would change by <b>+${(hclB-hclA).toFixed(3)}</b>.`;
+}
+
+/* ---------- drawing ---------- */
+let colors={}, aspectK=.75;
+function readColors(){ const cs=getComputedStyle(document.documentElement); for(const k of ['ha','a','na','h','water','ink','muted','glass','line','accent','panel']) colors[k]=cs.getPropertyValue('--'+k).trim(); }
+readColors(); setInterval(readColors,800);
+function fit(c){ const r=c.getBoundingClientRect(), d=window.devicePixelRatio||1; const w=Math.max(1,Math.round(r.width*d)), h=Math.max(1,Math.round(r.height*d)); if(c.width!==w||c.height!==h){c.width=w;c.height=h;} return {W:r.width,H:r.height,d}; }
+
+const mol=$('mol'), mctx=mol.getContext('2d');
+function drawMol(){
+  const {W,H,d}=fit(mol); aspectK=H/W;
+  const ctx=mctx; ctx.setTransform(d,0,0,d,0,0); ctx.clearRect(0,0,W,H);
+  const s=Math.min(W,H)/300;
+  const order=['w','na','ha','a','h'];
+  for(const t of order){
+    for(const p of P){ if(p.type!==t) continue;
+      const x=p.u*W, y=p.v*H; ctx.globalAlpha=Math.max(0,Math.min(1,p.alpha));
+      if(t==='w'){ ctx.globalAlpha*=.42; ctx.fillStyle=colors.water; ctx.beginPath(); ctx.arc(x,y,2.1*s,0,7); ctx.fill(); continue; }
+      if(t==='na'){ ctx.fillStyle=colors.na; ctx.beginPath(); ctx.arc(x,y,4.6*s,0,7); ctx.fill(); plus(ctx,x,y,2.2*s,colors.glass); continue; }
+      if(t==='ha'){ ctx.fillStyle=colors.ha; ctx.beginPath(); ctx.arc(x,y,7*s,0,7); ctx.fill();
+        ctx.fillStyle=colors.glass; ctx.strokeStyle=colors.ha; ctx.lineWidth=1.4*s; ctx.beginPath(); ctx.arc(x+7.2*s,y-5.2*s,3*s,0,7); ctx.fill(); ctx.stroke(); continue; }
+      if(t==='a'){ ctx.fillStyle=colors.a; ctx.beginPath(); ctx.arc(x,y,7*s,0,7); ctx.fill();
+        ctx.strokeStyle=colors.glass; ctx.lineWidth=1.8*s; ctx.beginPath(); ctx.moveTo(x-3*s,y); ctx.lineTo(x+3*s,y); ctx.stroke(); continue; }
+      if(t==='h'){ const r=(4.6+ (p.pop||0)*3)*s; ctx.fillStyle=colors.h; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill();
+        ctx.fillStyle=colors.glass; for(let i=0;i<3;i++){const a=i*2.094-1.57; ctx.beginPath(); ctx.arc(x+Math.cos(a)*r*.62,y+Math.sin(a)*r*.62,1.2*s,0,7); ctx.fill();} }
+    }
+  }
+  ctx.globalAlpha=1;
+  for(const f of flashes){ const k=f.t/f.dur; ctx.globalAlpha=1-k; ctx.strokeStyle=colors[f.c]; ctx.lineWidth=2*s; ctx.beginPath(); ctx.arc(f.u*W,f.v*H,(7+16*k)*s,0,7); ctx.stroke(); }
+  ctx.globalAlpha=1;
+  for(const sp of sprites){
+    const k=Math.min(1,sp.t/sp.dur), e=k<.5?2*k*k:1-((-2*k+2)**2)/2;
+    const u0=sp.from?sp.from.u:sp.u0, v0=sp.from?sp.from.v:sp.v0;
+    const u1=sp.to?sp.to.u:sp.u1, v1=sp.to?sp.to.v:sp.v1;
+    const x=(u0+(u1-u0)*e)*W, y=(v0+(v1-v0)*e)*H;
+    ctx.strokeStyle=colors.h; ctx.globalAlpha=.35; ctx.lineWidth=1.2*s; ctx.setLineDash([3*s,3*s]);
+    ctx.beginPath(); ctx.moveTo(u0*W,v0*H); ctx.lineTo(x,y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalAlpha=1; ctx.fillStyle=colors.h; ctx.beginPath(); ctx.arc(x,y,2.6*s,0,7); ctx.fill();
+    ctx.fillStyle=colors.ink; ctx.font=`600 ${9*s}px ${getComputedStyle(document.body).fontFamily}`; ctx.fillText('H⁺',x+4*s,y-4*s);
+  }
+  ctx.globalAlpha=1;
+}
+function plus(ctx,x,y,r,c){ ctx.strokeStyle=c; ctx.lineWidth=r*.55; ctx.beginPath(); ctx.moveTo(x-r,y); ctx.lineTo(x+r,y); ctx.moveTo(x,y-r); ctx.lineTo(x,y+r); ctx.stroke(); }
+
+const bk=$('beaker'), bctx=bk.getContext('2d');
+const fillFor=f=>.12+.78*Math.log10(f)/4;
+function drawBeaker(dt){
+  const {W,H,d}=fit(bk); const ctx=bctx; ctx.setTransform(d,0,0,d,0,0); ctx.clearRect(0,0,W,H);
+  st.fillDisp+= (fillFor(st.f)-st.fillDisp)*Math.min(1,dt*2.2);
+  const bx=W*.12, bw=W*.62, top=H*.08, bot=H*.97;
+  const level=bot-(bot-top)*st.fillDisp;
+  const pH=-Math.log10(st.h), fb=1/(1+10**(4.7-pH));
+  const Y=[214,178,38], B=[38,98,206];
+  const c=Y.map((y,i)=>Math.round(y+(B[i]-y)*fb));
+  ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},.62)`;
+  ctx.fillRect(bx,level,bw,bot-level);
+  ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},.9)`; ctx.fillRect(bx,level,bw,2);
+  if(st.phase==='mixing' && st.t<durs().mix*.85){
+    ctx.fillStyle=colors.water; ctx.globalAlpha=.85;
+    const sx=bx+bw*.35+Math.sin(performance.now()/90)*1.2;
+    ctx.fillRect(sx,0,Math.max(3,W*.035),level-top+top+2);
+    ctx.globalAlpha=1;
+  }
+  ctx.strokeStyle=colors.ink; ctx.globalAlpha=.55; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(bx-6,top); ctx.lineTo(bx,top+4); ctx.lineTo(bx,bot); ctx.lineTo(bx+bw,bot); ctx.lineTo(bx+bw,top); ctx.stroke();
+  ctx.globalAlpha=1;
+  ctx.font=`400 ${Math.max(9,Math.min(11,W*.085))}px ${getComputedStyle(document.documentElement).getPropertyValue('--font-data')}`;
+  ctx.fillStyle=colors.muted; ctx.strokeStyle=colors.muted; ctx.lineWidth=1;
+  const labs=['1×','10×','100×','10³×','10⁴×'];
+  for(let i=0;i<=4;i++){ const y=bot-(bot-top)*(.12+.78*i/4); ctx.beginPath(); ctx.moveTo(bx+bw-8,y); ctx.lineTo(bx+bw,y); ctx.stroke(); ctx.fillText(labs[i],bx+bw+4,y+3.5); }
+}
+
+/* ---------- UI ---------- */
+const stepsEls=[...document.querySelectorAll('#steps li')];
+let uiT=0;
+function updateUI(force){
+  const HA=st.Ct-st.A, pH=-Math.log10(st.h);
+  stepsEls.forEach(li=>li.classList.toggle('on',li.dataset.s===st.phase));
+  $('phTxt').textContent=pH.toFixed(3);
+  const dp=pH-st.pH0; $('dphTxt').textContent=`ΔpH ${dp>=0?'+':''}${dp.toFixed(4)} from start`+((st.phase==='mixing'||st.phase==='frozen')?' · frozen':st.phase==='relax'?' · shifting':'');
+  $('rHA').textContent=M(HA); $('rA').textContent=M(st.A); $('rH').textContent=M(st.h);
+  $('rRatio').textContent=(st.A/HA).toFixed(4);
+  $('rAct').textContent=pHActivity(st.Ct,st.Na).toFixed(3);
+  $('rHCl').textContent='pH '+pHHCl(st.HCl0/st.f).toFixed(3);
+  $('rBeta').textContent=sci(beta(st.heq,st.Ct))+' mol L⁻¹ per pH';
+  $('rTau').textContent=sci(relaxTime(st.heq,st.Aeq)*1e9)+' ns';
+  $('volTxt').textContent=volStr(st.f);
+  $('facTxt').textContent='dilution '+(st.f<1e4?st.f.toLocaleString('en-US'):'10,000')+'×';
+  const {vf,vr}=rates();
+  $('vf').textContent=sci(vf)+' M s⁻¹'; $('vr').textContent=sci(vr)+' M s⁻¹';
+  const q=Math.log10((st.h*st.A/HA)/Ka);
+  $('qTxt').innerHTML='Q/K<sub>a</sub> = '+(10**q).toFixed(3);
+  $('qMark').style.left=(50+Math.max(-2,Math.min(2,q))*25)+'%';
+  const m=Math.max(vf,vr), wf=Math.max(1,7*Math.sqrt(vf/m)), wr=Math.max(1,7*Math.sqrt(vr/m));
+  $('arrows').innerHTML=
+    `<line x1="4" y1="10" x2="${84-wf}" y2="10" stroke="var(--ha)" stroke-width="${wf}" stroke-linecap="round"/>`+
+    `<polygon points="${92},10 ${84-wf},${10-wf-2} ${84-wf},${10+wf+2}" fill="var(--ha)"/>`+
+    `<line x1="${12+wr}" y1="25" x2="92" y2="25" stroke="var(--a)" stroke-width="${wr}" stroke-linecap="round"/>`+
+    `<polygon points="4,25 ${12+wr},${25-wr-2} ${12+wr},${25+wr+2}" fill="var(--a)"/>`;
+  const fr=$('freeze');
+  if(st.phase==='frozen'||st.phase==='mixing'){
+    fr.hidden=false;
+    fr.innerHTML = st.phase==='mixing'
+      ? `<b>Mixing in water.</b> Solute particles spread into ${st.k}× the volume, so fewer remain in this window.`
+      : `<b>Freeze-frame: just mixed, before any proton moves.</b> Q = K<sub>a</sub>/${st.k}. The forward rate fell ${st.k}×, the reverse rate ${st.k*st.k}×.`;
+  } else fr.hidden=true;
+  const busy=st.phase==='mixing'||st.phase==='frozen';
+  $('d2').disabled=busy||st.f*2>FMAX*1.0001; $('d10').disabled=busy||st.f*10>FMAX*1.0001;
+  updateMarker();
+}
+
+/* ---------- chart ---------- */
+let CH=null;
+function buildChart(){
+  const svg=$('chart'), W=640,H=330, L=52,R=18,T=14,B=40;
+  const xs=[]; for(let lf=0;lf<=4.0001;lf+=.04) xs.push(lf);
+  const pHH=pKa+Math.log10(st.C0b/st.C0a);
+  const ex=[],ac=[],hc=[];
+  for(const lf of xs){ const f=10**lf, Ct=(st.C0a+st.C0b)/f, Na=st.C0b/f;
+    ex.push(-Math.log10(eqIdeal(Ct,Na).h)); ac.push(pHActivity(Ct,Na)); hc.push(pHHCl(st.HCl0/f)); }
+  const all=[...ex,...ac,...hc,pHH]; let lo=Math.min(...all), hi=Math.max(...all);
+  const span=hi-lo, step=span>1.5?.5:span>.6?.2:.1;
+  lo=Math.floor((lo-.05)/step)*step; hi=Math.ceil((hi+.05)/step)*step;
+  const X=lf=>L+(W-L-R)*lf/4, Y=p=>T+(H-T-B)*(1-(p-lo)/(hi-lo));
+  const path=arr=>arr.map((p,i)=>(i?'L':'M')+X(xs[i]).toFixed(1)+' '+Y(p).toFixed(1)).join(' ');
+  let band='';
+  const iBad=ex.findIndex(p=>Math.abs(p-pHH)>.02);
+  if(iBad>=0){ band=`<rect x="${X(xs[iBad])}" y="${T}" width="${X(4)-X(xs[iBad])}" height="${H-T-B}" fill="var(--c3)" opacity=".07"/>
+    <text x="${X(xs[iBad])+6}" y="${T+14}" font-size="11" fill="var(--muted)" font-family="var(--font-body)">HH off by &gt; 0.02</text>`; }
+  let grid='';
+  for(let p=lo;p<=hi+1e-9;p+=step){ grid+=`<line x1="${L}" x2="${W-R}" y1="${Y(p)}" y2="${Y(p)}" stroke="var(--line)"/><text x="${L-8}" y="${Y(p)+4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--font-data)">${p.toFixed(step<.2?2:1)}</text>`; }
+  const xl=['1×','10×','100×','1000×','10⁴×'];
+  for(let i=0;i<=4;i++){ grid+=`<line x1="${X(i)}" x2="${X(i)}" y1="${T}" y2="${H-B}" stroke="var(--line)" stroke-dasharray="2 4"/><text x="${X(i)}" y="${H-B+18}" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--font-data)">${xl[i]}</text>`; }
+  grid+=`<text x="${(L+W-R)/2}" y="${H-4}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="var(--font-body)">dilution factor (log scale)</text>`;
+  grid+=`<text transform="translate(14 ${(T+H-B)/2}) rotate(-90)" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="var(--font-body)">pH</text>`;
+  svg.innerHTML=band+grid+
+    `<line x1="${X(0)}" x2="${X(4)}" y1="${Y(pHH)}" y2="${Y(pHH)}" stroke="var(--hh)" stroke-width="2" stroke-dasharray="6 5" fill="none"/>`+
+    `<path d="${path(hc)}" stroke="var(--c3)" stroke-width="2.4" fill="none"/>`+
+    `<path d="${path(ac)}" stroke="var(--c2)" stroke-width="2.4" fill="none"/>`+
+    `<path d="${path(ex)}" stroke="var(--accent)" stroke-width="2.6" fill="none"/>`+
+    `<line id="mkLine" y1="${T}" y2="${H-B}" stroke="var(--ink)" stroke-opacity=".35"/>`+
+    `<circle id="mkH" r="5" fill="var(--c3)" stroke="var(--panel)" stroke-width="2"/>`+
+    `<circle id="mkA" r="5" fill="var(--c2)" stroke="var(--panel)" stroke-width="2"/>`+
+    `<circle id="mkE" r="6" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>`;
+  CH={X,Y};
+}
+function updateMarker(){
+  if(!CH) return;
+  const lf=Math.log10(st.f), x=CH.X(lf);
+  const pe=-Math.log10(eqIdeal(st.Ct,st.Na).h), pa=pHActivity(st.Ct,st.Na), ph=pHHCl(st.HCl0/st.f);
+  const set=(id,y)=>{const c=$(id); c.setAttribute('cx',x); c.setAttribute('cy',y);};
+  set('mkE',CH.Y(pe)); set('mkA',CH.Y(pa)); set('mkH',CH.Y(ph));
+  const l=$('mkLine'); l.setAttribute('x1',x); l.setAttribute('x2',x);
+}
+
+/* ---------- wiring ---------- */
+$('d2').onclick=()=>dilute(2);
+$('d10').onclick=()=>dilute(10);
+$('reset').onclick=reset;
+$('pause').onclick=()=>{ st.paused=!st.paused; $('pause').textContent=st.paused?'Resume':'Pause'; };
+$('slow').onchange=e=>{ st.slow=e.target.checked; setScaleFactor(); };
+$('ca').oninput=reset; $('cb').oninput=reset;
+
+let last=performance.now();
+function frame(now){
+  const dt=Math.max(0,Math.min(.05,(now-last)/1000)); last=now;
+  if(!st.paused) update(dt);
+  drawMol(); drawBeaker(st.paused?0:dt);
+  uiT+=dt; if(uiT>.08){ uiT=0; updateUI(); }
+  requestAnimationFrame(frame);
+}
+reset();
+requestAnimationFrame(frame);
+})();
+</script>
