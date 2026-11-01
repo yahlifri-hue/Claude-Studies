@@ -94,6 +94,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #72AAEA;outline-offse
       <label for="speed">Speed <input type="range" id="speed" min="0.1" max="3" step="0.05" value="1"><output id="speedO">1.0×</output></label>
       <button id="pause">Pause</button>
       <button id="resetView">Reset view</button>
+      <button id="spect">Spectator ions: hidden</button>
     </div>
     <div class="under">
       <div>
@@ -121,7 +122,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #72AAEA;outline-offse
       <li><strong>Same pH, less protection</strong>A diluted buffer has the same pH but fewer particles to neutralize added acid or base. Its capacity falls with every dilution.</li>
     </ul>
   </section>
-  <p class="foot">How the simulation works: particles wander at random. Each acetic acid ionizes with a fixed chance per second (water is always around it). An H₃O⁺ can hand its proton back only to an acetate it is touching, and the same contact rule applies to OH⁻ meeting acetic acid or H₃O⁺. Acetate hydrolysis and water's own ionization are included too. The rates use the real acid constant (pKₐ 4.76) and water constant, so the box behaves like a real acetate buffer of about 1.5 mM. That is dilute enough for H₃O⁺ to be common enough to see. Chapter 10 instead shows a 0.1 M buffer at its true proportions, about 1 H₃O⁺ per 5,700 acid molecules, with beacons and a long exposure to keep the rare H₃O⁺ visible. Real proton transfers take billionths of a second; every chapter is slowed down.</p>
+  <p class="foot">How the simulation works: particles wander at random. Each acetic acid ionizes with a fixed chance per second (water is always around it). An H₃O⁺ can hand its proton back only to an acetate it is touching, and the same contact rule applies to OH⁻ meeting acetic acid or H₃O⁺. Acetate hydrolysis and water's own ionization are included too. The rates use the real acid constant (pKₐ 4.76) and water constant, so the box behaves like a real acetate buffer of about 1.5 mM. That is dilute enough for H₃O⁺ to be common enough to see. Chapter 10 instead shows a buffer much closer to real strength, 1 H₃O⁺ per about 2,000 acid molecules (a 0.1 M buffer would be 1 per 5,700), with beacons and a long exposure to keep the rare H₃O⁺ visible. Real proton transfers take billionths of a second; every chapter is slowed down.</p>
 </main>
 
 <script>
@@ -169,7 +170,8 @@ function drawAcid(m,isA){
   if(isA){dbl(0,0,8,-8,1.5,[2,2]);dbl(0,0,8,8,1.5,[2,2]);}
   else{dbl(0,0,8,-8,1.6);bond(0,0,8,8,2.2);bond(8,8,15,13,1.8);}
   for(const [hx,hy] of [[-20,-6],[-20,6],[-13,-10]]) atom(hx,hy,2.5,C.Hat);
-  atom(-13,0,6.4,C.Cat);atom(0,0,6,C.Cat);atom(8,-8,5.6,C.O);atom(8,8,5.6,C.O);
+  const cc=isA?'#C98A3E':'#3FA79C'; // carbon skeleton tinted to match the dot colours: teal acid, amber acetate
+  atom(-13,0,6.4,cc);atom(0,0,6,cc);atom(8,-8,5.6,C.O);atom(8,8,5.6,C.O);
   if(!isA)atom(15,13,3.2,C.Hat);
 }
 function drawWater(){bond(0,0,4,5.1,2);bond(0,0,4,-5.1,2);atom(0,0,5.4,C.O);atom(4,5.1,3,C.Hat);atom(4,-5.1,3,C.Hat);}
@@ -178,7 +180,7 @@ function drawM(m){
   const a=m.alpha;if(a<=.01)return;
   ctx.save();ctx.globalAlpha=a;ctx.translate(m.x,m.y);
   const hc=HALO[m.type];
-  if(hc){const R=(m.type==='ha'||m.type==='a'?31:m.type==='na'?28:22)*m.s;ctx.drawImage(halo(hc),-R,-R,2*R,2*R);}
+  if(hc&&m.type!=='ha'&&m.type!=='a'){const R=24*m.s;ctx.globalAlpha=a*(m.type==='na'||m.type==='cl'?.45:1);ctx.drawImage(halo(hc),-R,-R,2*R,2*R);ctx.globalAlpha=a;}
   ctx.rotate(m.ang);ctx.scale(m.s,m.s);
   switch(m.type){
     case 'ha':drawAcid(m,false);break;
@@ -213,7 +215,7 @@ function tank(x,y,w,h,lvl,col,lab,mark){
 /* ================= model =================
    Concentrations are counted in "units" = particles per V0 of area. With KA = 8 units, one unit is 1.75e-5/8 M,
    so the box is a real acetate buffer at ~1.5 mM. Rate constants follow from the real Ka and Kw. */
-const V0=200000,KA=8,U=1.75e-5/KA,KW=1e-14/(U*U),pKa=4.757,KF=.03,RC=9,CAL=.9,CELL=10;
+const V0=200000,KA=8,U=1.75e-5/KA,KW=1e-14/(U*U),pKa=4.757,KF=.02,RC=9,CAL=.9,CELL=10;
 const LAM=(KF/KA)*V0/(Math.PI*RC*RC)/CAL;        // H3O+ + acetate, per contact per second
 const LAMB=20,KS=LAMB*Math.PI*RC*RC/V0;          // fast contact reactions of OH- (with H3O+ or acetic acid)
 const KB=KW/KA*KS, KW0=KW*KS;                    // acetate hydrolysis per acetate; water self-ionization per V0
@@ -230,8 +232,9 @@ function makeSim(spec,vp){
   const s={vp,V1:V,v:1,vt:1,AR:(vp.x1-vp.x0)/(vp.y1-vp.y0),P:[],react:true,ev:[],hist:[],fx:[],t:0,sT:0,emaH:0,emaOH:0,emaQ:1,contactAvg:0,
     cam:{fx:0,fy:0,tfx:0,tfy:0},camLock:false,showContacts:false,hl:null,queue:[],cnt:{ha:0,a:0,h:0,oh:0,na:0,cl:0},lists:{ha:[],a:[]},countMode:'box'};
   /* spec.real: the true proportions of a 0.1 M buffer (Ka/C = 1.75e-4). Ka is set in the same particle units,
-     and the ionization rate is chosen so an H3O+ lives a fraction of a second on screen. */
-  s.real=!!spec.real;s.KA=s.real?.1225:KA;s.KF=s.real?2.5e-4:KF;s.LAM=(s.KF/s.KA)*V0/(Math.PI*RC*RC)/CAL;s.U=1.75e-5/s.KA;s.KW=1e-14/(s.U*s.U);s.KB=s.KW/s.KA*KS;s.KW0=s.KW*KS;s.emaTau=s.real?8:1.2;s.trail=[];s.trailT=0;
+     Trimmed for legibility: 1 H3O+ per ~2,000 acid (a 35 mM buffer) rather than 1 per 5,700 (0.1 M).
+     The ionization rate is chosen so an H3O+ lives well under a second on screen. */
+  s.real=!!spec.real;s.KA=s.real?.35:KA;s.KF=s.real?7.1e-4:KF;s.muteBulk=!!spec.real;s.LAM=(s.KF/s.KA)*V0/(Math.PI*RC*RC)/CAL;s.U=1.75e-5/s.KA;s.KW=1e-14/(s.U*s.U);s.KB=s.KW/s.KA*KS;s.KW0=s.KW*KS;s.emaTau=s.real?8:1.2;s.trail=[];s.trailT=0;
   const b=boxOf(s);s.base=Math.min((vp.x1-vp.x0-14)/b.w,(vp.y1-vp.y0-14)/b.h);
   const acid=spec.acid||0,base=spec.base||0,hcl=spec.hcl||0,naoh=spec.naoh||0,f=V0/V;
   const h=eqH((acid+base)*f,(acid+hcl-naoh)*f,s.KA,s.KW),T=acid+base,nHA=Math.round(T*h/(h+s.KA));
@@ -308,7 +311,8 @@ function simTick(s,dt){
 function simPH(s){const f=V0/boxOf(s).V;if(s.emaH/f<.4&&s.emaOH/f<.4)return s.eqPH??7;return clamp(s.emaOH>s.emaH?14+Math.log10(s.emaOH*s.U):-Math.log10(s.emaH*s.U),0,14);}
 
 /* ================= camera & drawing ================= */
-let ZOOM=1,ZT=1,SPEED=1,paused=false,RDT=.016;
+let ZOOM=1,ZT=1,SPEED=1,paused=false,RDT=.016,SPECT=false;
+function setSpect(v){SPECT=v;const b=$('spect');if(b){b.textContent=v?'Spectator ions: shown':'Spectator ions: hidden';b.classList.toggle('on',v);}}
 function camOf(s){const b=boxOf(s),vp=s.vp,fit=Math.min((vp.x1-vp.x0-14)/b.w,(vp.y1-vp.y0-14)/b.h);
   return{k:(s.camLock?s.base:Math.min(s.base,fit))*ZOOM,cx:(vp.x0+vp.x1)/2,cy:(vp.y0+vp.y1)/2,fx:s.cam.fx,fy:s.cam.fy,b};}
 function camUpdate(s,rdt){const c=camOf(s),vp=s.vp,mx=Math.max(0,c.b.w/2-(vp.x1-vp.x0)/2/c.k+20),my=Math.max(0,c.b.h/2-(vp.y1-vp.y0)/2/c.k+20);
@@ -320,19 +324,19 @@ function drawSim(s,o={}){
   ctx.save();rrect(vp.x0,vp.y0,vp.x1-vp.x0,vp.y1-vp.y0,10);ctx.fillStyle='#050B10';ctx.fill();ctx.clip();
   const bx0=X(-b.w/2),by0=Y(-b.h/2);ctx.fillStyle='#0D1A24';ctx.fillRect(bx0,by0,b.w*k,b.h*k);
   const wx0=Math.max(-b.w/2,(vp.x0-c.cx)/k+c.fx),wx1=Math.min(b.w/2,(vp.x1-c.cx)/k+c.fx),wy0=Math.max(-b.h/2,(vp.y0-c.cy)/k+c.fy),wy1=Math.min(b.h/2,(vp.y1-c.cy)/k+c.fy);
-  const hl=s.hl,dimA=t=>hl&&!hl.has(t)?.14:1,DET=k>=2.6;
+  const hl=s.hl,bulkA=s.muteBulk?.45:.8,dimA=t=>(hl&&!hl.has(t)?.14:1)*(t==='ha'||t==='a'?(hl&&hl.has(t)?1:bulkA):1),DET=k>=2.6;
   // water: drawn only when zoomed in enough to resolve it
-  if(k>=1.6){const cs=5.2,al=hl?(hl.has('w')?1:.22):.75,jt=perfT*2;
+  if(k>=2.6){const cs=5.2,al=hl?(hl.has('w')?1:.2):.55,jt=perfT*2;
     const pts=[];for(let gx=Math.floor(wx0/cs);gx<=Math.ceil(wx1/cs);gx++)for(let gy=Math.floor(wy0/cs);gy<=Math.ceil(wy1/cs);gy++){const q=hash2(gx,gy);if(q<.3)continue;pts.push([X(gx*cs+q*2.6+Math.sin(jt+q*9)*.8),Y(gy*cs+hash2(gy,gx)*2.6+Math.cos(jt*1.2+q*7)*.8),q*TAU+perfT*(q-.5)]);}
     const ro=Math.max(.9,1.15*k*.42),rh=ro*.58,d=ro*1.25;ctx.globalAlpha=al*(DET?.75:.45);
     ctx.fillStyle=C.O;ctx.beginPath();for(const [x,y] of pts){ctx.moveTo(x+ro,y);ctx.arc(x,y,ro,0,TAU);}ctx.fill();
     if(k>=2.2){ctx.fillStyle=C.Hat;ctx.beginPath();for(const [x,y,a] of pts){for(const s2 of [-.9,.9]){const hx=x+Math.cos(a+s2)*d,hy=y+Math.sin(a+s2)*d;ctx.moveTo(hx+rh,hy);ctx.arc(hx,hy,rh,0,TAU);}}ctx.fill();}
     ctx.globalAlpha=1;}
-  const by={ha:[],a:[],h:[],oh:[],na:[],cl:[]},sk=1-Math.exp(-RDT/.07);for(const p of s.P){p.sx+=(p.x-p.sx)*sk;p.sy+=(p.y-p.sy)*sk;if(p.x<wx0-8||p.x>wx1+8||p.y<wy0-8||p.y>wy1+8)continue;by[p.t].push(p);}
-  if(DET){for(const t of ['na','cl','ha','a','oh','h'])for(const p of by[t])drawM({type:SIMT[t],x:X(p.sx),y:Y(p.sy),s:k*.24,ang:p.ang,alpha:dimA(t)});}
+  const by={ha:[],a:[],h:[],oh:[],na:[],cl:[]},skI=1-Math.exp(-RDT/.07),skB=1-Math.exp(-RDT/.3);for(const p of s.P){const sk=p.t==='h'||p.t==='oh'?skI:skB;p.sx+=(p.x-p.sx)*sk;p.sy+=(p.y-p.sy)*sk;if(!SPECT&&(p.t==='na'||p.t==='cl'))continue;if(p.x<wx0-8||p.x>wx1+8||p.y<wy0-8||p.y>wy1+8)continue;by[p.t].push(p);}
+  if(DET){for(const t of ['na','cl','ha','a','oh','h'])for(const p of by[t])drawM({type:SIMT[t],x:X(p.sx),y:Y(p.sy),s:k*(t==='h'||t==='oh'?.22:.18),ang:p.ang,alpha:dimA(t)});}
   else{const r=Math.max(1.15,2.7*k),dots=(arr,col,rr,al)=>{if(!arr.length)return;ctx.globalAlpha=al;ctx.fillStyle=col;if(rr<1.8){const d=rr*1.8;for(const p of arr)ctx.fillRect(X(p.sx)-d/2,Y(p.sy)-d/2,d,d);}else{ctx.beginPath();for(const p of arr){const x=X(p.sx),y=Y(p.sy);ctx.moveTo(x+rr,y);ctx.arc(x,y,rr,0,TAU);}ctx.fill();}ctx.globalAlpha=1;};
-    dots(by.na,C.na,Math.max(.9,2*k),dimA('na')*.7);dots(by.cl,C.cl,r*1.1,dimA('cl'));dots(by.a,C.a,r,dimA('a'));dots(by.ha,C.ha,r,dimA('ha'));
-    if(k>=1.1){ctx.globalAlpha=dimA('ha');ctx.fillStyle=C.Hat;ctx.beginPath();const rr=r*.42;for(const p of by.ha){const x=X(p.sx)+Math.cos(p.ang)*r*1.05,y=Y(p.sy)+Math.sin(p.ang)*r*1.05;ctx.moveTo(x+rr,y);ctx.arc(x,y,rr,0,TAU);}ctx.fill();ctx.globalAlpha=1;}
+    dots(by.na,C.na,Math.max(.9,2*k),dimA('na')*.6);dots(by.cl,C.cl,r*1.1,dimA('cl')*.6);dots(by.a,C.a,r,dimA('a'));dots(by.ha,C.ha,r,dimA('ha'));
+    if(k>=1.1){ctx.globalAlpha=dimA('ha')*.8;ctx.fillStyle=C.Hat;ctx.beginPath();const rr=r*.42;for(const p of by.ha){const x=X(p.sx)+Math.cos(p.ang)*r*1.05,y=Y(p.sy)+Math.sin(p.ang)*r*1.05;ctx.moveTo(x+rr,y);ctx.arc(x,y,rr,0,TAU);}ctx.fill();ctx.globalAlpha=1;}
     ctx.globalAlpha=dimA('oh');for(const p of by.oh)glow(X(p.sx),Y(p.sy),Math.max(9,r*4),C.oh);ctx.globalAlpha=1;dots(by.oh,C.oh,r*1.25,dimA('oh'));
     ctx.globalAlpha=dimA('h');for(const p of by.h)glow(X(p.sx),Y(p.sy),Math.max(11,r*4.5),C.h3o);ctx.globalAlpha=1;dots(by.h,C.h3o,r*1.35,dimA('h'));}
   if(s.showContacts){ctx.lineWidth=1.4;for(const h of by.h){const x=X(h.sx),y=Y(h.sy);ctx.fillStyle='rgba(255,92,147,.07)';ctx.strokeStyle='rgba(255,92,147,.75)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.arc(x,y,RC*k,0,TAU);ctx.fill();ctx.stroke();ctx.setLineDash([]);
@@ -340,7 +344,7 @@ function drawSim(s,o={}){
   if(s.trailOn){const ex=s.exposure||10;ctx.fillStyle=C.h3o;for(let bk=0;bk<5;bk++){ctx.globalAlpha=.12+.16*bk;ctx.beginPath();
       for(const q of s.trail){const age=s.t-q.t;if(age>ex||Math.floor((1-age/ex)*5)!==bk)continue;const x=X(q.x),y=Y(q.y);ctx.moveTo(x+1.7,y);ctx.arc(x,y,1.7,0,TAU);}ctx.fill();}
     ctx.lineWidth=1.2;for(const e of s.ev){const age=s.t-e.t;if(age>ex)continue;ctx.globalAlpha=.75*(1-age/ex);ctx.strokeStyle=e.k==='f'?C.ha:C.a;ctx.beginPath();ctx.arc(X(e.x),Y(e.y),4,0,TAU);ctx.stroke();}ctx.globalAlpha=1;}
-  drawFx(s,X,Y);
+  drawFx(s,X,Y,k);
   if(o.beacons){const ph=(perfT*1.4)%1,m=14;for(const p of by.h){const x=X(p.sx),y=Y(p.sy);glow(x,y,30,C.h3o);ctx.strokeStyle=C.h3o;ctx.globalAlpha=1-ph;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y,8+26*ph,0,TAU);ctx.stroke();ctx.globalAlpha=1;
       ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,7,0,TAU);ctx.stroke();if(k<2.6)text('H₃O⁺',x+10,y-10,{size:12,col:C.h3o});}
     for(const p of s.P){if(p.t!=='h')continue;const x=X(p.sx),y=Y(p.sy);if(x>vp.x0&&x<vp.x1&&y>vp.y0&&y<vp.y1)continue;
@@ -348,7 +352,7 @@ function drawSim(s,o={}){
   if(o.labels&&hl){let best=null,bd=1e9;const cxw=c.fx,cyw=c.fy;
     if(hl.has('w')){const cs=5.2,gx=Math.round(cxw/cs),gy=Math.round(cyw/cs);best={x:gx*cs+hash2(gx,gy)*2.6,y:gy*cs+hash2(gy,gx)*2.6,t:'w'};}
     else for(const p of s.P){if(!hl.has(p.t))continue;const d=(p.x-cxw)**2+(p.y-cyw)**2;if(d<bd){bd=d;best=p;}}
-    if(best){const x=X(best.x),y=Y(best.y),nm=best.t==='w'?'water, H₂O':{ha:'acetic acid, CH₃COOH',a:'acetate, CH₃COO⁻',na:'sodium ion, Na⁺',h:'hydronium, H₃O⁺',oh:'hydroxide, OH⁻',cl:'chloride, Cl⁻'}[best.t];
+    if(best){const x=X(best.sx??best.x),y=Y(best.sy??best.y),nm=best.t==='w'?'water, H₂O':{ha:'acetic acid, CH₃COOH',a:'acetate, CH₃COO⁻',na:'sodium ion, Na⁺',h:'hydronium, H₃O⁺',oh:'hydroxide, OH⁻',cl:'chloride, Cl⁻'}[best.t];
       ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,Math.max(8,9*k*.9),0,TAU);ctx.stroke();label(nm,x,y,x+90,y-80,best.t==='w'?'#9FC3DF':COL[best.t],{size:15});}}
   if(follow&&follow.s===s&&follow.state==='show'){const ox=X(follow.ox),oy=Y(follow.oy),x=X(follow.x),y=Y(follow.y);
     const L=follow.kind==='f'?[['acetic acid → acetate',C.ha],['water → H₃O⁺',C.h3o]]:[['H₃O⁺ → water',C.h3o],['acetate → acetic acid',C.a]];
@@ -359,18 +363,17 @@ function drawSim(s,o={}){
   ctx.restore();ctx.strokeStyle='rgba(140,170,195,.3)';ctx.lineWidth=1;rrect(vp.x0,vp.y0,vp.x1-vp.x0,vp.y1-vp.y0,10);ctx.stroke();
 }
 /* reaction bursts: the proton flies from donor to acceptor, then glow, two rings and sparks, sized in screen pixels */
-function drawFx(s,X,Y){
+function drawFx(s,X,Y,k=1){const sz=clamp(.6+.2*k,.7,1.3);
   for(const e of s.fx){const q=e.t/e.dur,sx=X(e.x),sy=Y(e.y);
     if(e.k==='pop'){ctx.globalAlpha=1-q;ctx.strokeStyle=e.col;ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(sx,sy,3+12*q,0,TAU);ctx.stroke();ctx.globalAlpha=1;continue;}
     if(e.k==='big'){ctx.globalAlpha=1-q;ctx.strokeStyle=e.col;ctx.lineWidth=3;ctx.beginPath();ctx.arc(sx,sy,14+90*q,0,TAU);ctx.stroke();ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(sx,sy,8+60*q,0,TAU);ctx.stroke();ctx.globalAlpha=1;continue;}
     const col=FXC[e.k],ox=X(e.ox),oy=Y(e.oy);
     if(q<.42){const f=ease(q/.42),px=lerp(ox,sx,f),py=lerp(oy,sy,f)-Math.sin(Math.PI*f)*7;
-      ctx.strokeStyle='rgba(255,170,200,.75)';ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(px,py);ctx.stroke();
-      glow(px,py,18,C.h3o);ctx.fillStyle='#FFF6FA';ctx.beginPath();ctx.arc(px,py,3,0,TAU);ctx.fill();
+      ctx.strokeStyle='rgba(255,170,200,.6)';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(px,py);ctx.stroke();
+      glow(px,py,14*sz,C.h3o);ctx.fillStyle='#FFF6FA';ctx.beginPath();ctx.arc(px,py,2.4*sz,0,TAU);ctx.fill();
       if(q<.2){ctx.globalAlpha=1-q/.2;ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();ctx.arc(ox,oy,4+12*q/.2,0,TAU);ctx.stroke();ctx.globalAlpha=1;}}
-    const b=clamp((q-.36)/.64);if(b>0){const a=1-b;ctx.globalAlpha=a;glow(sx,sy,10+28*(1-b*.5),col);glow(sx,sy,8,'#FFFFFF');
-      ctx.strokeStyle=col;ctx.lineWidth=2.6;ctx.beginPath();ctx.arc(sx,sy,5+24*b,0,TAU);ctx.stroke();ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(sx,sy,5+40*Math.sqrt(b),0,TAU);ctx.stroke();
-      ctx.lineWidth=1.8;ctx.beginPath();for(let i=0;i<6;i++){const an=e.seed+i*TAU/6;ctx.moveTo(sx+Math.cos(an)*(7+16*b),sy+Math.sin(an)*(7+16*b));ctx.lineTo(sx+Math.cos(an)*(11+26*b),sy+Math.sin(an)*(11+26*b));}ctx.stroke();ctx.globalAlpha=1;}}
+    const b=clamp((q-.36)/.64);if(b>0){ctx.globalAlpha=(1-b)*.9;glow(sx,sy,(8+14*(1-b))*sz,col);
+      ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx,sy,(4+16*Math.sqrt(b))*sz,0,TAU);ctx.stroke();ctx.globalAlpha=1;}}
 }
 /* bottom panel: event ticks, average rates, H3O+ against its equilibrium level, counts, pH, Q/K */
 function viewCounts(s){const c=camOf(s),vp=s.vp,R={x0:(vp.x0-c.cx)/c.k+c.fx,x1:(vp.x1-c.cx)/c.k+c.fx,y0:(vp.y0-c.cy)/c.k+c.fy,y1:(vp.y1-c.cy)/c.k+c.fy},n={ha:0,a:0,h:0,oh:0,na:0,cl:0};for(const p of s.P)if(inR(p.x,p.y,R))n[p.t]++;return n;}
@@ -426,22 +429,22 @@ function setAmount(s,kind,target){const key=kind==='acid'?'acidAdded':'baseAdded
   if(kind==='acid'){if(d>0)addUniform(s,['ha'],d);else if(d<0)removeSome(s,'ha',-d);}else{if(d>0)addUniform(s,['a','na'],d);else if(d<0){removeSome(s,'a',-d);removeSome(s,'na',-d);}}}
 function chips(el,s){el.insertAdjacentHTML('beforeend','<div class="chips" id="chips">'+[['w','Water'],['ha','Acetic acid'],['a','Acetate'],['na','Sodium'],['h','H₃O⁺'],['all','Show all']].map(([k,n])=>`<button data-k="${k}">${n}</button>`).join('')+'</div>');
   const upd=()=>$('chips').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.k==='all'?!s.hl:!!(s.hl&&s.hl.has(b.dataset.k))));
-  $('chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{s.hl=b.dataset.k==='all'?null:new Set([b.dataset.k]);if(s.hl&&!s.hl.has('w'))ZT<2.6&&zoomTo(3);upd();});upd();}
+  $('chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{s.hl=b.dataset.k==='all'?null:new Set([b.dataset.k]);if(b.dataset.k==='na')setSpect(true);if(s.hl&&!s.hl.has('w'))ZT<2.6&&zoomTo(3);upd();});upd();}
 
 /* ---------- 1 ---------- */
 CH.push({title:'Meet the molecules',layout:'full',
  init(){st.s=makeSim({acid:1200,base:1200},VP.full);zoomTo(1,{instant:true});speedTo(.6);},
  steps:[
   {t:'A buffer, up close',c:'This is a buffer: acetic acid and sodium acetate dissolved in water, zooming in until single molecules show. Everything here moves and reacts live. Use <b>Zoom</b> and <b>Speed</b> above at any time, and drag the picture to look around. The chips below pick out one kind of particle.',
-   enter(o){zoomTo(4.2,o);st.s.hl=null;},ctl(el){chips(el,st.s);}},
+   enter(o){zoomTo(4.2,o);st.s.hl=null;setSpect(false);},ctl(el){chips(el,st.s);}},
   {t:'Water',c:'<b>Water</b> is almost everything: a red oxygen carrying two white hydrogens. It is the solvent. It surrounds every other particle, and it takes part in the chemistry by catching and releasing protons.',
    enter(o){st.s.hl=new Set(['w']);zoomTo(5,o);},ctl(el){chips(el,st.s);}},
   {t:'Acetic acid',c:'<b class="c-ha">Acetic acid</b>, CH₃COOH. The hydrogen on its O–H group (the white bump on each teal dot when zoomed out) can leave as a bare proton. When it does you see a <b class="c-ha">teal burst</b>: the proton flies onto a neighbouring water.',
    enter(o){st.s.hl=new Set(['ha']);zoomTo(4,o);},ctl(el){chips(el,st.s);}},
-  {t:'Sodium acetate',c:'Sodium acetate dissolves completely into <b class="c-na">sodium ions</b> and <b class="c-a">acetate ions</b>, CH₃COO⁻. Acetate is acetic acid minus that proton: its <b>conjugate base</b>, the same molecule on the other side of the reaction. Sodium is a spectator: it wears a shell of water and never reacts.',
-   enter(o){st.s.hl=new Set(['a','na']);zoomTo(4,o);},ctl(el){chips(el,st.s);}},
-  {t:'Hydronium',c:'<b class="c-h">Hydronium</b>, H₃O⁺: a water molecule carrying an extra proton. How much there is sets the pH. It is rare: about 14 among the 3,600 particles in this box. <b class="c-a">Amber bursts</b> are an H₃O⁺ handing its proton back to an acetate. This box behaves like a dilute (1.5 mM) acetate buffer. In a typical 0.1 M lab buffer H₃O⁺ is rarer still.',
-   enter(o){st.s.hl=new Set(['h']);zoomTo(1.3,o);},ctl(el){chips(el,st.s);el.insertAdjacentHTML('beforeend','<button id="grid">Show the proportion in a 0.1 M lab buffer</button>');$('grid').onclick=()=>{st.grid=!st.grid;$('grid').classList.toggle('on',st.grid);};}}],
+  {t:'Sodium acetate',c:'Sodium acetate dissolves completely into <b class="c-na">sodium ions</b> and <b class="c-a">acetate ions</b>, CH₃COO⁻. Acetate is acetic acid minus that proton: its <b>conjugate base</b>, the same molecule on the other side of the reaction. Sodium is a spectator: it wears a shell of water and never reacts. Spectator ions are hidden in the other scenes to keep the picture clear; the toolbar button shows them.',
+   enter(o){st.s.hl=new Set(['a','na']);setSpect(true);zoomTo(4,o);},ctl(el){chips(el,st.s);}},
+  {t:'Hydronium',c:'<b class="c-h">Hydronium</b>, H₃O⁺: a water molecule carrying an extra proton. How much there is sets the pH. It is rare: about 14 among the 2,400 acid and acetate molecules in this box. <b class="c-a">Amber bursts</b> are an H₃O⁺ handing its proton back to an acetate. This box behaves like a dilute (1.5 mM) acetate buffer. In a typical 0.1 M lab buffer H₃O⁺ is rarer still.',
+   enter(o){st.s.hl=new Set(['h']);setSpect(false);zoomTo(1.3,o);},ctl(el){chips(el,st.s);el.insertAdjacentHTML('beforeend','<button id="grid">Show the proportion in a 0.1 M lab buffer</button>');$('grid').onclick=()=>{st.grid=!st.grid;$('grid').classList.toggle('on',st.grid);};}}],
  update(dt){simStep(st.s,dt);},
  draw(){drawSim(st.s,{labels:true});if(st.grid)drawGrid();}});
 function drawGrid(){ctx.fillStyle='rgba(6,12,17,.94)';ctx.fillRect(0,0,W,H);const cols=95,rows=60,x0=40,y0=88,dx=(W-80)/(cols-1),dy=(H-120)/(rows-1),pk=3217;
@@ -496,14 +499,14 @@ CH.push({title:'Why the balance tips',layout:'single',
  init(){st.s=makeSim({acid:1200,base:1200},VP.single);st.s.showContacts=true;zoomTo(3.4,{instant:true});},
  steps:[
   {t:'Recombination needs a meeting',c:'Each dashed circle is the reach of one <b class="c-h">H₃O⁺</b>. It can hand its proton back only to an acetate inside that circle (ringed). The counter at top left gives how many acetates are in reach of an H₃O⁺, on average.',enter(o){zoomTo(3.4,o);}},
-  {t:'Ionization needs only water',c:'An acetic acid needs nothing but the water already touching it. So each acid has the same chance per second of ionizing, here about once every 33 seconds, however dilute the solution is. Dilution changes how often H₃O⁺ meets acetate, not how often acid meets water.'},
+  {t:'Ionization needs only water',c:'An acetic acid needs nothing but the water already touching it. So each acid has the same chance per second of ionizing, here about once every 50 seconds, however dilute the solution is. Dilution changes how often H₃O⁺ meets acetate, not how often acid meets water.'},
   {t:'Dilute four-fold',c:'Now dilute four-fold (slowed down). Total ionizations per second stay the same: every acid molecule is still there. But each H₃O⁺ has four times fewer acetates in reach, so recombinations drop to about a quarter. The rate lines split, H₃O⁺ builds up until there are four times as many in four times the volume, and the rates rejoin.',
    enter(o){setVol(st.s,4,o);speedTo(.5);zoomTo(1.6,o);},ctl(el){el.insertAdjacentHTML('beforeend',sliderHTML('vol','Volume',.5,4,.05,4));bindVol(()=>[st.s],.5,4);}},
   {t:'Both directions',c:'Squeeze the volume down and the opposite happens: more acetates in reach, recombination wins, H₃O⁺ falls. Dilution favours the side with more dissolved particles (H₃O⁺ + acetate); concentrating favours acetic acid. This is Le Chatelier’s principle, seen as encounter rates.',
    ctl(el){el.insertAdjacentHTML('beforeend',sliderHTML('vol','Volume',.5,4,.05,4)+'<button id="cc">Contact circles: on</button>');bindVol(()=>[st.s],.5,4);$('cc').onclick=()=>{st.s.showContacts=!st.s.showContacts;$('cc').textContent='Contact circles: '+(st.s.showContacts?'on':'off');};}}],
  update(dt){simStep(st.s,dt);},
  draw(){drawSim(st.s);drawPanel(st.s);const ln=`acetates in reach of each H₃O⁺: ${st.s.contactAvg.toFixed(2)} on average`;ctx.fillStyle='rgba(8,16,22,.85)';rrect(10,10,360,46,8);ctx.fill();
-   text(ln,20,29,{size:13,col:C.a});text('each acid: one ionization every ~33 s, at any dilution',20,47,{size:12,col:C.ha,font:FONT(500,12)});}});
+   text(ln,20,29,{size:13,col:C.a});text('each acid: one ionization every ~50 s, at any dilution',20,47,{size:12,col:C.ha,font:FONT(500,12)});}});
 
 /* ---------- 6 ---------- */
 CH.push({title:'The reserve refills H₃O⁺',layout:'tank',
@@ -530,7 +533,7 @@ function dualVolSteps(t1,c1,t2,c2,t3,c3,max=16){return[{t:t1,c:c1},{t:t2,c:c2,en
   {t:t3,c:c3,ctl(el){el.insertAdjacentHTML('beforeend',sliderHTML('vol','Volume (both)',1,max,.1,4));bindVol(()=>[st.L,st.R],1,max);}}];}
 CH.push({title:'Buffer vs. strong acid',layout:'dual',sims(){return[st.L,st.R];},
  init(){st.L=makeSim({acid:800,base:800,ref:800},VP.L);const V=boxOf(st.L).V;st.R=makeSim({hcl:Math.round(8*V/V0),ref:800},VP.R);zoomTo(1,{instant:true});},
- steps:dualVolSteps('Same pH, different reserves','Left: the buffer. Right: hydrochloric acid at the same pH. HCl is fully ionized. Its H₃O⁺ comes with chloride ions (green) and has no acid reserve behind it, so nothing reacts there except the occasional H₃O⁺ meeting a stray OH⁻.',
+ steps:dualVolSteps('Same pH, different reserves','Left: the buffer. Right: hydrochloric acid at the same pH. HCl is fully ionized. Its H₃O⁺ comes with chloride ions (spectators, hidden) and has no acid reserve behind it, so nothing reacts there except the occasional H₃O⁺ meeting a stray OH⁻.',
   'Dilute both four-fold','Both are diluted four-fold. In the buffer, H₃O⁺ is rebuilt from acetic acid within moments and the pH barely moves. HCl has nothing to rebuild from: its H₃O⁺ stays thinned and its pH rises by 0.6.',
   'Keep going','Push the volume to 16×. Each four-fold dilution costs HCl another 0.6 pH units. The buffer gives up only a little, and only once its reserve becomes small, which is the next chapter.'),
  update(dt){simStep(st.L,dt);simStep(st.R,dt);},draw(){drawSim(st.L);drawSim(st.R);drawHeader(st.L,'Acetate buffer');drawHeader(st.R,'Hydrochloric acid');}});
@@ -560,23 +563,23 @@ function exposureCtl(el,on){el.insertAdjacentHTML('beforeend','<button id="lx">L
   const e=$('exp'),o=()=>$('expO').textContent=e.value+' s';o();e.oninput=()=>{st.s.exposure=+e.value;o();};}
 function followCtl(el){el.insertAdjacentHTML('beforeend','<button id="trk">Fly to an H₃O⁺ and follow it</button><button id="whole">Show the whole box</button>');
   $('trk').onclick=()=>{st.track=true;st.cur=null;zoomTo(9);};$('whole').onclick=()=>{st.track=false;zoomTo(1);centerCams();};}
-CH.push({title:'At real concentration',layout:'single',
- init(){st.s=makeSim({acid:11400,base:11400,ref:11400,real:true,noNa:true},VP.single);st.s.exposure=10;zoomTo(1,{instant:true});speedTo(1);st.track=false;},
+CH.push({title:'Close to real concentration',layout:'single',
+ init(){st.s=makeSim({acid:4000,base:4000,ref:4000,real:true,noNa:true},VP.single);st.s.exposure=10;zoomTo(1,{instant:true});speedTo(1);st.track=false;},
  steps:[
-  {t:'One in 5,700',c:'So far the buffer was dilute so that H₃O⁺ would be easy to spot. This is a <b>0.1 M</b> acetate buffer at its true proportions: about 11,400 acetic acid molecules and 11,400 acetate ions (sodium ions and water are present but not drawn as dots), and on average only about <b>two</b> H₃O⁺. Pulsing pink beacons mark them, and arrows at the edges point to any outside the view. Zoom in and try to find one in the crowd, or let the camera fly to it.',
+  {t:'One in 2,000',c:'So far the buffer was dilute so that H₃O⁺ would be easy to spot. This one is far closer to a real lab buffer: about 4,000 acetic acid molecules and 4,000 acetate ions, drawn as a quiet backdrop, and on average only about <b>two</b> H₃O⁺. That is one H₃O⁺ per 2,000 acid molecules, a 35 mM buffer. A standard 0.1 M buffer would be 1 in 5,700, which is the same picture with a crowd three times bigger. Pulsing pink beacons mark them, and arrows at the edges point to any outside the view. Zoom in and try to find one in the crowd, or let the camera fly to it.',
    enter(o){zoomTo(1,o);centerCams();},ctl(el){followCtl(el);}},
   {t:'Here, then gone',c:'Follow one. Each H₃O⁺ lasts well under a second here (about a fifth of a nanosecond in reality) before it bumps into one of the acetates crowding around it and hands its proton back. When it does, the camera jumps to the next one, born somewhere else. The <b>long exposure</b> records where H₃O⁺ has been (pink trails) and where handoffs happened (teal and amber specks). Over a few seconds protons turn up all over the box, though there are only ever about two at once.',
    enter(o){st.s.trailOn=true;st.track=true;st.cur=null;zoomTo(6,o);},ctl(el){followCtl(el);exposureCtl(el);}},
   {t:'Still a balance of rates',c:'Zoom back out and watch the strip. A few ionizations and a few recombinations each second, matching on average, while the H₃O⁺ count hops between none and a handful around its equilibrium level of about two. Rare, but held steady by the same balance of rates as in the dilute box.',
    enter(o){st.track=false;zoomTo(1,o);centerCams();},ctl(el){exposureCtl(el);}},
-  {t:'Dilute at true scale',c:'Dilute four-fold. To keep the same concentration in four times the volume there must be four times as many H₃O⁺: watch the beacons multiply from about 2 to about 8. Making those six extra costs 6 of the 11,400 acid molecules, about 0.05%, so the acid : acetate ratio and the pH do not visibly change. This is why a real lab buffer barely notices dilution. Push the slider to 16×.',
+  {t:'Dilute at true scale',c:'Dilute four-fold. To keep the same concentration in four times the volume there must be four times as many H₃O⁺: watch the beacons multiply from about 2 to about 8. Making those six extra costs 6 of the 4,000 acid molecules, about 0.15%, so the acid : acetate ratio and the pH do not visibly change. This is why a real lab buffer barely notices dilution. Push the slider to 16×.',
    enter(o){st.track=false;setVol(st.s,4,o);zoomTo(1,o);centerCams();},ctl(el){el.insertAdjacentHTML('beforeend',sliderHTML('vol','Volume',1,16,.1,4));bindVol(()=>[st.s],1,16);exposureCtl(el);}}],
  update(dt){simStep(st.s,dt);
    if(st.track){const s=st.s;if(!st.cur||st.cur.dead){let best=null;for(const p of s.P)if(p.t==='h'&&(!best||p.age<best.age))best=p;st.cur=best;}
      if(st.cur){s.cam.tfx=st.cur.sx;s.cam.tfy=st.cur.sy;}}},
  draw(){drawSim(st.s,{beacons:true});if(st.track&&st.cur){const c=camOf(st.s);const x=c.cx+(st.cur.sx-c.fx)*c.k,y=c.cy+(st.cur.sy-c.fy)*c.k;label('following this H₃O⁺',x,y,x+80,y-70,C.h3o,{size:13});}
    drawPanel(st.s);
-   const n=st.s.cnt;ctx.fillStyle='rgba(8,16,22,.85)';rrect(10,10,330,28,8);ctx.fill();text(`right now: ${n.h} H₃O⁺ among ${(n.ha+n.a).toLocaleString('en-US')} acid + acetate`,20,29,{size:13,col:C.txt});}});
+   const n=st.s.cnt;ctx.fillStyle='rgba(8,16,22,.85)';rrect(10,10,330,28,8);ctx.fill();text(`right now: ${n.h} H₃O⁺ among ${(n.ha+n.a).toLocaleString('en-US')} acid and acetate`,20,29,{size:13,col:C.txt});}});
 
 /* ---------- 11 ---------- */
 CH.push({title:'Full simulator',layout:'single',
@@ -608,6 +611,7 @@ $('restart').onclick=()=>goTo(CI,0,true);
 $('zoom').oninput=e=>{ZT=s2z(+e.target.value);$('zoomO').textContent=ZT.toFixed(1)+'×';};
 $('speed').oninput=e=>{SPEED=+e.target.value;override=null;$('speedO').textContent=SPEED.toFixed(1)+'×';};
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'Play':'Pause';};
+$('spect').onclick=()=>setSpect(!SPECT);
 $('resetView').onclick=()=>{zoomTo(1);centerCams();};
 window.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;if(e.key==='ArrowRight')$('next').click();if(e.key==='ArrowLeft')$('prev').click();});
 window.addEventListener('hashchange',()=>{const m=/^#ch(\d+)$/.exec(location.hash);if(m&&+m[1]-1!==CI&&CH[+m[1]-1])goTo(+m[1]-1,0,true);});
