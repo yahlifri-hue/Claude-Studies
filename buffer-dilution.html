@@ -42,6 +42,7 @@ main.wrap{display:flex;flex-direction:column;gap:18px;padding-block:6px 48px}
 .toolbar label{display:flex;gap:8px;align-items:center;font-size:.9rem;color:var(--th-muted);min-width:200px;flex:1}
 .toolbar input[type=range]{flex:1;accent-color:#72AAEA}
 .toolbar output{font-family:var(--font-data);color:var(--th-ink);min-width:5ch;text-align:right;font-size:.85rem}
+.toolbar button.on{background:var(--th-acc);border-color:var(--th-acc);color:#fff}
 .under{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 20px;padding:16px 20px 18px;background:var(--th-panel);border-top:1px solid var(--th-line);align-items:start}
 @media (max-width:760px){.under{grid-template-columns:minmax(0,1fr)}}
 .chtitle{font-family:var(--font-data);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--th-muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -95,6 +96,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #72AAEA;outline-offse
       <button id="pause">Pause</button>
       <button id="resetView">Reset view</button>
       <button id="spect">Spectator ions: hidden</button>
+      <button id="rpl" class="on">Slow-motion replays: on</button>
     </div>
     <div class="under">
       <div>
@@ -189,6 +191,7 @@ function drawM(m){
     case 'oh':bond(0,0,7,0,2);atom(0,0,5.8,C.O);atom(7,0,3,C.Hat);break;
     case 'na':{for(let i=0;i<5;i++){const t=i*TAU/5;ctx.save();ctx.globalAlpha=a*.5;ctx.translate(17*Math.cos(t),17*Math.sin(t));ctx.rotate(t);ctx.scale(.8,.8);drawWater();ctx.restore();}atom(0,0,7.5,C.na);break;}
     case 'cl':atom(0,0,8.5,C.cl);break;
+    case 'w':drawWater();break;
   }
   ctx.restore();
   const ch={a:'−',oh:'−',cl:'−',h3o:'+',na:'+'}[m.type];
@@ -251,8 +254,9 @@ function addCloud(s,types,n){const b=boxOf(s),r=.42*Math.min(b.w,b.h),c={x:rnd(-
   s.fx.push({k:'big',x:c.x,y:c.y,ox:c.x,oy:c.y,t:0,dur:1.2,seed:0,col:COL[types[0]]});}
 
 let follow=null,override=null;
-function simEvent(s,k,ox,oy,x,y){
+function simEvent(s,k,ox,oy,x,y,pair){
   if(k==='f'||k==='r')s.ev.push({t:s.t,k,x,y});
+  (s.recent||(s.recent=[])).push({pair:pair||k,x,y,ox,oy,rt:rnow()});if(s.recent.length>40)s.recent.shift();
   if(s.fx.length<260)s.fx.push({k,x,y,ox,oy,t:0,dur:.85,seed:Math.random()*TAU});
   if(follow&&follow.s===s&&follow.state==='wait'&&follow.kind===k){const b=boxOf(s);if(Math.abs(x)<b.w/2-30&&Math.abs(y)<b.h/2-30){
     follow.state='show';follow.t0=rnow();follow.x=x;follow.y=y;follow.ox=ox;follow.oy=oy;s.cam.tfx=x;s.cam.tfy=y;ZT=Math.max(ZT,4.5);syncZoomUI();override={mul:.1,until:rnow()+3.2};}}
@@ -290,11 +294,11 @@ function simTick(s,dt){
       const na=la.length,aSel=na?la[Math.floor(Math.random()*na)]:null;cSum+=na;cN++;
       const lo=nbrs(s,h.x,h.y,'oh',RC,NB);if(h.age<.15&&h.partner){const i=lo.indexOf(h.partner);if(i>=0)lo.splice(i,1);}
       const no=lo.length,rate=s.LAM*na+LAMB*no;if(rate>0&&Math.random()<1-Math.exp(-rate*dt)){
-        if(Math.random()*rate<LAMB*no){const o=lo[Math.floor(Math.random()*no)];o.dead=true;h.dead=true;simEvent(s,'n',h.x,h.y,o.x,o.y);}
+        if(Math.random()*rate<LAMB*no){const o=lo[Math.floor(Math.random()*no)];o.dead=true;h.dead=true;simEvent(s,'n',h.x,h.y,o.x,o.y,'nh');}
         else{aSel.t='ha';h.dead=true;simEvent(s,'r',h.x,h.y,aSel.x,aSel.y);}}}
     if(cN)s.contactAvg+=(cSum/cN-s.contactAvg)*Math.min(1,dt*.8);
     for(const o of s.P){if(o.dead||o.t!=='oh')continue;const lh=nbrs(s,o.x,o.y,'ha',RC,NB);if(o.age<.15&&o.partner){const i=lh.indexOf(o.partner);if(i>=0)lh.splice(i,1);}
-      const nh=lh.length;if(nh&&Math.random()<1-Math.exp(-LAMB*nh*dt)){const q=lh[Math.floor(Math.random()*nh)];q.t='a';o.dead=true;simEvent(s,'n',q.x,q.y,o.x,o.y);}}
+      const nh=lh.length;if(nh&&Math.random()<1-Math.exp(-LAMB*nh*dt)){const q=lh[Math.floor(Math.random()*nh)];q.t='a';o.dead=true;simEvent(s,'n',q.x,q.y,o.x,o.y,'na');}}
     s.P=s.P.filter(p=>!p.dead).concat(born);
   }
   for(const e of s.fx)e.t+=dt;s.fx=s.fx.filter(e=>e.t<e.dur);
@@ -402,6 +406,61 @@ function drawPanel(s){
   sm('0.1',gx0,y0+135,C.mut,'center');sm('1',(gx0+gx1)/2,y0+135,C.mut,'center');sm('10',gx1,y0+135,C.mut,'center');
   if(s.v!==1)sm('volume '+s.v.toFixed(1)+'×',qx,y0+82,C.mut);if(!s.react)sm('REACTIONS OFF',qx,y0+66,C.h3o);
 }
+/* ================= slow-motion replay of one real reaction =================
+   When a reaction happens in view, a close-up re-enacts that same pair of molecules in slow motion:
+   collide, hydrogen bond, proton moves, new partners. A marker links it to where it happened. */
+let REPLAY=true,RP=null,RPgap=0,lastPair=null;const RPDUR=5.2;
+const RPI={f:{d:'ha',a:'w',col:C.ha,title:'Ionization: acetic acid gives its proton to water',eq:'CH₃COOH + H₂O → CH₃COO⁻ + H₃O⁺'},
+  r:{d:'h3o',a:'a',col:C.a,title:'Recombination: H₃O⁺ hands a proton back to acetate',eq:'H₃O⁺ + CH₃COO⁻ → H₂O + CH₃COOH'},
+  nh:{d:'h3o',a:'oh',col:C.oh,title:'Neutralization: H₃O⁺ meets OH⁻',eq:'H₃O⁺ + OH⁻ → H₂O + H₂O'},
+  na:{d:'ha',a:'oh',col:C.oh,title:'Added base takes a proton from acetic acid',eq:'CH₃COOH + OH⁻ → CH₃COO⁻ + H₂O'},
+  b:{d:'w',a:'a',col:C.oh,title:'Acetate takes a proton from water (rare)',eq:'CH₃COO⁻ + H₂O → CH₃COOH + OH⁻'},
+  w:{d:'w',a:'w',col:'#FFFFFF',title:'Water ionizes itself (very rare)',eq:'H₂O + H₂O → H₃O⁺ + OH⁻'}};
+const NM={ha:'acetic acid',a:'acetate',w:'water',h3o:'H₃O⁺',oh:'OH⁻'},NMC={ha:C.ha,a:C.a,w:'#9FC3DF',h3o:C.h3o,oh:C.oh};
+const rot=(x,y,a)=>[x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a)];
+/* donor: orientation so its transferable H points right (+x), and the orientation of its product */
+function dGeo(t){if(t==='ha'){const a=-Math.atan2(5,7);return{ang:a,h:rot(15,13,a),prod:'a',pang:a};}
+  if(t==='h3o')return{ang:0,h:[7,0],prod:'w',pang:Math.PI};
+  const a=-.908;return{ang:a,h:rot(4,5.1,a),prod:'oh',pang:-1.816};}
+/* acceptor: orientation so its proton-catching site faces left, the site, where the H ends up, and the product */
+function aGeo(t){if(t==='a'){const a=Math.PI-Math.atan2(5,7);return{ang:a,site:rot(8,8,a),arrive:rot(15,13,a),prod:'ha',pang:a};}
+  if(t==='w')return{ang:0,site:[0,0],arrive:[-7,0],prod:'h3o',pang:Math.PI/3};
+  return{ang:0,site:[0,0],arrive:[-7,0],prod:'w',pang:Math.PI/2};}
+function insetRect(){const L=st.dual?'dual':CH[CI].layout,w=336,h=214;return L==='dual'?{x:612,y:314,w,h}:L==='tank'?{x:16,y:314,w,h}:{x:614,y:10,w,h};}
+function pickReplay(){const busy=RP&&(RP.pair!=='f'&&RP.pair!=='r');if(!REPLAY||busy||(!RP&&rnow()<RPgap))return;const I=insetRect(),now=rnow(),cand=[];
+  for(const s of sims()){if(!s.recent)continue;const c=camOf(s),vp=s.vp;for(const e of s.recent){if(now-e.rt>(e.pair==='f'||e.pair==='r'?.8:3))continue;/* rare reactions stay eligible longer */const x=c.cx+(e.x-c.fx)*c.k,y=c.cy+(e.y-c.fy)*c.k;
+    if(x<vp.x0+12||x>vp.x1-12||y<vp.y0+12||y>vp.y1-12)continue;if(x>I.x-16&&x<I.x+I.w+16&&y>I.y-16&&y<I.y+I.h+16)continue;cand.push({e,s});}}
+  if(!cand.length)return;const rare=cand.filter(c=>!['f','r'].includes(c.e.pair)),alt=cand.filter(c=>c.e.pair!==lastPair);
+  if(RP&&!rare.length)return; /* a rare reaction (added acid or base, hydrolysis, water) interrupts a common replay */
+  const pool=rare.length?rare:alt.length?alt:cand,ch=pool[pool.length-1];RP={...ch.e,s:ch.s,t:0};lastPair=RP.pair;}
+function drawReplay(rdt){
+  if(!RP)return;if(!paused)RP.t+=rdt;if(RP.t>RPDUR){RP=null;RPgap=rnow()+.6;return;}
+  const I=insetRect(),info=RPI[RP.pair],t=RP.t,A=clamp(Math.min(t/.3,(RPDUR-t)/.45));
+  ctx.save();ctx.globalAlpha=A;
+  // marker at the real event, linked to the inset
+  const s=RP.s,c=camOf(s),mx=c.cx+((RP.x+RP.ox)/2-c.fx)*c.k,my=c.cy+((RP.y+RP.oy)/2-c.fy)*c.k;
+  if(inR(mx,my,s.vp)){ctx.strokeStyle='#FFFFFF';ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.lineDashOffset=-perfT*20;ctx.beginPath();ctx.arc(mx,my,15,0,TAU);ctx.stroke();
+    const ex=clamp(mx,I.x,I.x+I.w),ey=clamp(my,I.y,I.y+I.h);ctx.globalAlpha=A*.6;ctx.beginPath();ctx.moveTo(mx+(ex-mx)*15/Math.max(1,Math.hypot(ex-mx,ey-my)),my+(ey-my)*15/Math.max(1,Math.hypot(ex-mx,ey-my)));ctx.lineTo(ex,ey);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=A;}
+  ctx.fillStyle='rgba(5,10,15,.95)';rrect(I.x,I.y,I.w,I.h,12);ctx.fill();ctx.strokeStyle=info.col;ctx.lineWidth=2;ctx.stroke();
+  text('SLOW-MOTION REPLAY',I.x+12,I.y+17,{size:10,col:C.mut,font:MONO(10)});text(info.title,I.x+12,I.y+34,{size:12,col:C.txt});
+  ctx.save();rrect(I.x,I.y,I.w,I.h,12);ctx.clip();
+  const S=2.6,cx=I.x+I.w/2,cy=I.y+I.h/2+2,dg=dGeo(info.d),ag=aGeo(info.a);
+  const gap=t<1?lerp(36,10,ease(t)):t<2.6?10:lerp(10,30,ease((t-2.6)/1.1));
+  const D=[(dg.h[0]-ag.site[0]+gap)*S,(dg.h[1]-ag.site[1])*S],Dc=[cx-D[0]/2,cy-D[1]/2],Ac=[cx+D[0]/2,cy+D[1]/2];
+  const P0=[Dc[0]+dg.h[0]*S,Dc[1]+dg.h[1]*S],P1=[Ac[0]+ag.arrive[0]*S,Ac[1]+ag.arrive[1]*S],Sa=[Ac[0]+ag.site[0]*S,Ac[1]+ag.site[1]*S];
+  const moving=t>=1.6&&t<2.5,after=t>=2.5,f=clamp((t-1.6)/.9);
+  const dType=t<1.6?info.d:dg.prod,aType=after?ag.prod:info.a;
+  drawM({type:dType,x:Dc[0],y:Dc[1],s:S,ang:t<1.6?dg.ang:dg.pang,alpha:1});drawM({type:aType,x:Ac[0],y:Ac[1],s:S,ang:after?ag.pang:ag.ang,alpha:1});
+  if(t>=1&&t<2.5){const fa=clamp((t-1)/.3);ctx.globalAlpha=A*fa;ctx.strokeStyle='rgba(235,245,255,.85)';ctx.lineWidth=1.8;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(moving?lerp(P0[0],P1[0],ease(f)):P0[0],moving?lerp(P0[1],P1[1],ease(f)):P0[1]);ctx.lineTo(Sa[0],Sa[1]);ctx.stroke();ctx.setLineDash([]);
+    if(t<1.6)text('hydrogen bond',(P0[0]+Sa[0])/2,Math.min(P0[1],Sa[1])-26,{align:'center',size:11,col:'#CFE3F2'});ctx.globalAlpha=A;}
+  if(moving){const x=lerp(P0[0],P1[0],ease(f)),y=lerp(P0[1],P1[1],ease(f))-Math.sin(Math.PI*f)*10;glow(x,y,22,C.h3o);ctx.fillStyle='#FFF6FA';ctx.beginPath();ctx.arc(x,y,4.5,0,TAU);ctx.fill();text('H⁺',x,y-14,{align:'center',size:12,col:C.h3o});}
+  if(t>=2.5&&t<3.2){const q=(t-2.5)/.7;ctx.globalAlpha=A*(1-q);ctx.strokeStyle=NMC[ag.prod];ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(P1[0],P1[1],6+28*q,0,TAU);ctx.stroke();ctx.globalAlpha=A;}
+  const ny=I.y+I.h-46;text(NM[dType],Dc[0],ny,{align:'center',size:12,col:NMC[dType]});text(NM[aType],Ac[0],ny,{align:'center',size:12,col:NMC[aType]});
+  ctx.restore();
+  const stages=['meet','H-bond','proton moves','new partners'],cur=t<1?0:t<1.6?1:t<2.5?2:3;let x=I.x+12;ctx.font=FONT(600,10.5);
+  stages.forEach((w,i)=>{ctx.fillStyle=i===cur?'#FFFFFF':'rgba(139,158,173,.7)';ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.fillText((i+1)+' '+w,x,I.y+I.h-25);x+=ctx.measureText((i+1)+' '+w).width+12;});
+  text(info.eq,I.x+12,I.y+I.h-9,{font:MONO(11),col:C.txt});
+  ctx.restore();}
 function drawHeader(s,title,sub){const vp=s.vp,x0=vp.x0,x1=vp.x1,n=s.cnt;
   text(title,x0+6,22,{size:15});if(sub)text(sub,x0+6,40,{size:12,col:C.mut,font:FONT(500,12)});
   const parts=['ha','a','h','oh','cl'].filter(t=>n[t]>0||t==='h').map(t=>`${NAMES[t]} ${n[t]}`).join(' · ');
@@ -435,7 +494,7 @@ function chips(el,s){el.insertAdjacentHTML('beforeend','<div class="chips" id="c
 CH.push({title:'Meet the molecules',layout:'full',
  init(){st.s=makeSim({acid:1200,base:1200},VP.full);zoomTo(1,{instant:true});speedTo(.6);},
  steps:[
-  {t:'A buffer, up close',c:'This is a buffer: acetic acid and sodium acetate dissolved in water, zooming in until single molecules show. Everything here moves and reacts live. Use <b>Zoom</b> and <b>Speed</b> above at any time, and drag the picture to look around. The chips below pick out one kind of particle.',
+  {t:'A buffer, up close',c:'This is a buffer: acetic acid and sodium acetate dissolved in water, zooming in until single molecules show. Everything here moves and reacts live. Whenever a reaction happens in view, a <b>slow-motion replay</b> of that exact pair of molecules plays in the corner. Use <b>Zoom</b> and <b>Speed</b> above at any time, and drag the picture to look around. The chips below pick out one kind of particle.',
    enter(o){zoomTo(4.2,o);st.s.hl=null;setSpect(false);},ctl(el){chips(el,st.s);}},
   {t:'Water',c:'<b>Water</b> is almost everything: a red oxygen carrying two white hydrogens. It is the solvent. It surrounds every other particle, and it takes part in the chemistry by catching and releasing protons.',
    enter(o){st.s.hl=new Set(['w']);zoomTo(5,o);},ctl(el){chips(el,st.s);}},
@@ -595,7 +654,7 @@ CH.push({title:'Full simulator',layout:'single',
 const nav=$('chapters');CH.forEach((c,i)=>{const b=document.createElement('button');b.innerHTML=`<span class="n">${i+1}</span>${c.title}`;b.onclick=()=>goTo(i,0,true);nav.appendChild(b);});
 function goTo(ci,si,reinit){
   const ch=CH[ci];
-  if(reinit||ci!==CI||si<=SI){CI=ci;st={};follow=null;override=null;ch.init();for(let i=0;i<si;i++)ch.steps[i].enter&&ch.steps[i].enter({instant:true});}
+  if(reinit||ci!==CI||si<=SI){CI=ci;st={};follow=null;override=null;RP=null;ch.init();for(let i=0;i<si;i++)ch.steps[i].enter&&ch.steps[i].enter({instant:true});}
   SI=si;st.volSync=null;const step=ch.steps[si];step.enter&&step.enter({instant:false});
   const el=$('sceneCtl');el.innerHTML='';if(step.ctl)step.ctl(el);
   $('chTitle').textContent=`Chapter ${ci+1} of ${CH.length} · ${ch.title}`;
@@ -612,6 +671,7 @@ $('zoom').oninput=e=>{ZT=s2z(+e.target.value);$('zoomO').textContent=ZT.toFixed(
 $('speed').oninput=e=>{SPEED=+e.target.value;override=null;$('speedO').textContent=SPEED.toFixed(1)+'×';};
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'Play':'Pause';};
 $('spect').onclick=()=>setSpect(!SPECT);
+$('rpl').onclick=()=>{REPLAY=!REPLAY;RP=null;$('rpl').textContent='Slow-motion replays: '+(REPLAY?'on':'off');$('rpl').classList.toggle('on',REPLAY);};
 $('resetView').onclick=()=>{zoomTo(1);centerCams();};
 window.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;if(e.key==='ArrowRight')$('next').click();if(e.key==='ArrowLeft')$('prev').click();});
 window.addEventListener('hashchange',()=>{const m=/^#ch(\d+)$/.exec(location.hash);if(m&&+m[1]-1!==CI&&CH[+m[1]-1])goTo(+m[1]-1,0,true);});
@@ -629,9 +689,9 @@ function frame(now){const rdt=Math.max(0,Math.min(.05,(now-last)/1000));last=now
   if(!paused){const dt=rdt*sp*(window.__speed||1);perfT+=dt;CH[CI].update(dt);}
   for(const s of sims())camUpdate(s,rdt);
   if(st.volSync)st.volSync();
-  ctx.setTransform(DPR*SC,0,0,DPR*SC,0,0);ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);CH[CI].draw();
+  ctx.setTransform(DPR*SC,0,0,DPR*SC,0,0);ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);CH[CI].draw();pickReplay();drawReplay(rdt);
   requestAnimationFrame(frame);}
-window.__goTo=goTo;window.__st=()=>st;
+window.__goTo=goTo;window.__st=()=>st;window.__rp=()=>RP;
 const m0=/^#ch(\d+)$/.exec(location.hash);goTo(m0&&CH[+m0[1]-1]?+m0[1]-1:0,0,true);
 requestAnimationFrame(frame);
 })();
